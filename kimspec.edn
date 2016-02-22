@@ -1,0 +1,7 @@
+{"description" "This is a three-body Stillinger-Weber (SW) potential model driver for Silicon.  This is intended to calculate lattice constant, cohesive energy, elastic constants, thermal conductivities and several other material properties."
+ "disclaimer" ""
+ "domain" "openkim.org"
+ "kim-api-version" "1.6"
+ "extended-id" "Three_Body_Stillinger_Weber__MD_335816936951_001"
+ "source-citations" "1. F. H. Stillinger and T. A. Weber, \"Computer simulation of local order in condensed phases of silicon\", Phys. Rev. B, vol. 31, 5262-5271, 1985\n2. Ellad B. Tadmor and Ronald E. Miller, Modeling Materials: Continuum, Atomistic and Multiscale Techniques, Cambridge University Press, 2011"
+ "title" "A three-body Stillinger-Weber (SW) potential for Silicon"}
