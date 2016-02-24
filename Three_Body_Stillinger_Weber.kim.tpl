@@ -41,6 +41,7 @@ PARTICLE_SPECIES:
 # Symbol/name               Type                    code
 
 SPECIES_001_NAME_STR        spec                    1
+SPECIES_002_NAME_STR        spec                    2
 
 
 #######################################################################################################
@@ -125,6 +126,6 @@ PARAM_FREE_sigma            double       length                 []
 
 PARAM_FREE_epsilon          double       energy                 []
 
-PARAM_FREE_costhetat        double       none                   []
+PARAM_FREE_costheta         double       none                   []
 
 PARAM_FIXED_cutsq           double       length                 []

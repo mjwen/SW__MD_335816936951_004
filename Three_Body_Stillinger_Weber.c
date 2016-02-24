@@ -79,7 +79,8 @@
 * Below are the definitions and values of all Model parameters
 *******************************************************************************/
 #define DIM 3       /* dimensionality of space */
-#define SPECCODE 1  /* internal species code */
+#define SPEC1 1     /* internal species code */
+#define SPEC2 2     /* internal species code */
 
 /* Define prototypes for Model Driver init */
 /* must be all lowercase to be compatible with the KIM API (to support Fortran Tests) */
@@ -100,11 +101,11 @@ static void calc_phi_dphi_two(double* A, double* B, double* p, double* q, double
 static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
                                double r, double* phi, double* dphi, double* d2phi);
 
-static void calc_phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costhetat,
+static void calc_phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
                            double rij, double rik, double rjk, double* phi);
-static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costhetat,
+static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
                                 double rij, double rik, double rjk, double* phi, double* dphi);
-static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costhetat,
+static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
                                  double rij, double rik, double rjk, double* phi, double* dphi, double* d2phi);
 
 /* Define model_buffer structure */
@@ -119,6 +120,7 @@ struct model_buffer {
    int process_d2Edr2_ind;
    int model_index_shift;
    int numberOfParticles_ind;
+   int numberOfSpecies_ind;
    int particleSpecies_ind;
    int coordinates_ind;
    int numberContributingParticles_ind;
@@ -127,7 +129,7 @@ struct model_buffer {
    int cutoff_ind;
 
 
-   double* Pcutoff;
+   double* cutoff;
    double* cutsq;
    double* A;
    double* B;
@@ -138,8 +140,8 @@ struct model_buffer {
    double* gamma;
    double* sigma;
    double* epsilon;
-   double* costhetat;
-};
+   double* costheta;
+   double* cutsq23;    /* additional cutoff for 2 3 atoms (ONLY needed if two species are in configuration) */ };
 
 
 /* Calculate pair potential phi_two(r) */
@@ -223,7 +225,7 @@ static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, doubl
 }
 
 /* Calculate pair potential phi_three(rij, rik, rjk) */
-static void calc_phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costhetat,
+static void calc_phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
                            double rij, double rik, double rjk, double* phi)
 {
    /* local variables */
@@ -247,7 +249,7 @@ static void calc_phi_three(double* a, double* lambda, double* gamma, double* sig
 
    costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
 
-   diff_costhetajik = costhetajik - *costhetat;
+   diff_costhetajik = costhetajik - *costheta;
 
    exp_ij_ik = exp((*gamma) * (1/(rij_cap - *a) + 1/(rik_cap - *a)));
 
@@ -264,7 +266,7 @@ static void calc_phi_three(double* a, double* lambda, double* gamma, double* sig
 
   dphi has three components as derivatives of phi w.r.t. rij, rik, rjk
 */
-static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costhetat,
+static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
                                 double rij, double rik, double rjk, double* phi, double* dphi)
 {
    /* local variables */
@@ -298,7 +300,7 @@ static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double
 
    costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
 
-   diff_costhetajik = costhetajik - *costhetat;
+   diff_costhetajik = costhetajik - *costheta;
 
    /* Derivatives of cosines w.r.t rij, rik, rjk */
    costhetajik_ij = (*sigma)*(pow(rij,2) - pow(rik,2) + pow(rjk,2))/(2*rij*rij*rik);
@@ -333,7 +335,7 @@ static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double
                                                                             [1]=(ik,ik), [5]=(ik,jk)
                                                                                          [2]=(jk,jk)
 */
-static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costhetat,
+static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
                                  double rij, double rik, double rjk, double* phi, double* dphi, double* d2phi)
 {
     /* local variables */
@@ -386,7 +388,7 @@ static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, doubl
 
    costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
 
-   diff_costhetajik = costhetajik - *costhetat;
+   diff_costhetajik = costhetajik - *costheta;
 
    diff_costhetajik_2 = diff_costhetajik *  diff_costhetajik;
 
@@ -515,6 +517,7 @@ static int compute(void* km)
    int request;
 
    int* nAtoms;
+   int* nSpecies;
    int* particleSpecies;
    double* cutoff;
    double* cutsq;
@@ -527,7 +530,8 @@ static int compute(void* km)
    double* gamma;
    double* sigma;
    double* epsilon;
-   double* costhetat;
+   double* costheta;
+   double* cutsq23;
    double* Rij_list;
    double* coords;
    double* energy;
@@ -537,6 +541,10 @@ static int compute(void* km)
    int* numContrib;
    int numberContrib;
    int numOfAtomNeigh;
+   int iSpecies;
+   int jSpecies;
+   int kSpecies;
+   int interaction_index;
    typedef int (*get_neigh_ptr)(void *,int *,int *,int *, int *, int **, double **);
    get_neigh_ptr get_neigh;
 
@@ -558,18 +566,6 @@ static int compute(void* km)
    HalfOrFull = buffer->HalfOrFull;
    IterOrLoca = buffer->IterOrLoca;
    model_index_shift = buffer->model_index_shift;
-   /* unpack the Model's parameters stored in the KIM API object */
-   cutsq  = buffer->cutsq;
-   A      = buffer->A;
-   B      = buffer->B;
-   p      = buffer->p;
-   q      = buffer->q;
-   a      = buffer->a;
-   lambda = buffer->lambda;
-   gamma  = buffer->gamma;
-   sigma  = buffer->sigma;
-   epsilon = buffer->epsilon;
-   costhetat = buffer->costhetat;
 
    /* check to see if we have been asked to compute the forces, particleEnergy, and dEdr */
    KIM_API_getm_compute_by_index(pkim, &ier, 5*3,
@@ -584,10 +580,11 @@ static int compute(void* km)
       return ier;
    }
 
-   KIM_API_getm_data_by_index(pkim, &ier, 9*3,
+   KIM_API_getm_data_by_index(pkim, &ier, 10*3,
                               buffer->cutoff_ind,                      &cutoff,         1,
                               buffer->numberOfParticles_ind,           &nAtoms,         1,
-                              buffer->particleSpecies_ind,               &particleSpecies,  1,
+                              buffer->numberOfSpecies_ind,             &nSpecies,       1,
+                              buffer->particleSpecies_ind,             &particleSpecies,1,
                               buffer->coordinates_ind,                 &coords,         1,
                               buffer->numberContributingParticles_ind, &numContrib,     (HalfOrFull==1),
                               buffer->boxSideLengths_ind,              &boxSideLengths, (NBC==1),
@@ -630,7 +627,7 @@ static int compute(void* km)
    ier = KIM_STATUS_FAIL; /* assume an error */
    for (i = 0; i < *nAtoms; ++i)
    {
-      if ( SPECCODE != particleSpecies[i])
+      if (particleSpecies[i] > *nSpecies)
       {
          KIM_API_report_error(__LINE__, __FILE__, "Unexpected species type detected", ier);
          return ier;
@@ -738,12 +735,41 @@ static int compute(void* km)
             }
          }
       }
+      iSpecies = particleSpecies[i];
 
       /* loop over the neighbors of atom i */
       for (jj = 0; jj < numOfAtomNeigh; ++ jj)
       {
 
-         j = neighListOfCurrentAtom[jj] + model_index_shift; /* get neighbor ID */
+        j = neighListOfCurrentAtom[jj] + model_index_shift; /* get neighbor ID */
+        jSpecies = particleSpecies[j];
+
+        /* get corresponding parameters */
+        if (iSpecies == SPEC1 && jSpecies == SPEC1) {
+          interaction_index = 0;
+        } else if (iSpecies == SPEC2 && jSpecies == SPEC2) {
+          interaction_index = 2;
+        } else {
+          interaction_index = 1;
+        }
+        cutsq  = &(buffer->cutsq)[interaction_index];
+        A      = &(buffer->A)[interaction_index];
+        B      = &(buffer->B)[interaction_index];
+        p      = &(buffer->p)[interaction_index];
+        q      = &(buffer->q)[interaction_index];
+        a      = &(buffer->a)[interaction_index];
+        lambda = &(buffer->lambda)[interaction_index];
+        gamma  = &(buffer->gamma)[interaction_index];
+        sigma  = &(buffer->sigma)[interaction_index];
+        epsilon = &(buffer->epsilon)[interaction_index];
+        costheta = &(buffer->costheta)[interaction_index];
+
+        if(*nSpecies == 2) {
+          if (iSpecies == SPEC1 && jSpecies ==SPEC2)
+            cutsq23 = &(buffer->cutsq23)[0];
+          else if (iSpecies == SPEC2 && jSpecies==SPEC1)
+            cutsq23 = &(buffer->cutsq23)[1];
+        }
 
          /* compute relative position vector and squared distance */
          Rsqij = 0.0;
@@ -879,6 +905,15 @@ static int compute(void* km)
          {
 
            k = neighListOfCurrentAtom[kk] + model_index_shift; /* get neighbor ID */
+           kSpecies = particleSpecies[k];
+            
+           /* Two species only consider spec1-sepc2-spec2 or sepc2-spec1-spec1 interactions */
+           if (*nSpecies == 2) {
+             if( !(iSpecies==SPEC1 && jSpecies==SPEC2 && kSpecies==SPEC2) &&
+                 !(iSpecies==SPEC2 && jSpecies==SPEC1 && kSpecies==SPEC1)){
+               continue; 
+             }
+           }
 
            /* compute relative position vector and squared distance */
            Rsqik = 0.0;
@@ -917,14 +952,15 @@ static int compute(void* km)
            /* compute energy and force */
 
            if (Rsqik > *cutsq) continue; /* particles are interacting ? */
-
+           if (*nSpecies == 2 && Rsqjk > *cutsq23) continue; /* i-j-k, j and k particles are interacting? */
+            
             R2 = sqrt(Rsqik);
             R3 = sqrt(Rsqjk);
 
             if (comp_process_d2Edr2)
             {
                /* compute three-body potential and its derivatives */
-               calc_phi_d2phi_three(a, lambda, gamma, sigma, epsilon, costhetat,
+               calc_phi_d2phi_three(a, lambda, gamma, sigma, epsilon, costheta,
                                     R1, R2, R3, &phi_three, dphi_three, d2phi_three);
 
                /* compute dEidr */
@@ -953,7 +989,7 @@ static int compute(void* km)
             else if (comp_force || comp_process_dEdr)
             {
                /* compute three-body potential and its derivative */
-               calc_phi_dphi_three(a, lambda, gamma, sigma, epsilon, costhetat,
+               calc_phi_dphi_three(a, lambda, gamma, sigma, epsilon, costheta,
                                    R1, R2, R3, &phi_three, dphi_three);
 
                /* compute dEidr */
@@ -976,7 +1012,7 @@ static int compute(void* km)
             else
             {
                /* compute just three-body potential */
-               calc_phi_three(a, lambda, gamma, sigma, epsilon, costhetat,
+               calc_phi_three(a, lambda, gamma, sigma, epsilon, costheta,
                              R1, R2, R3, &phi_three);
             }
 
@@ -1192,21 +1228,6 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
 
    /* Local variables */
    FILE* fid;
-   double cutoff;
-   double A;
-   double B;
-   double p;
-   double q;
-   double a;
-   double lambda;
-   double gamma;
-   double sigma;
-   double epsilon;
-   double costhetat;
-   /* double <FILL parameter 1>; */
-   /* double <FILL parameter 2>; */
-   /* FILL as many parameters as needed */
-   double* model_Pcutoff;
    double* model_cutoff;
    double* model_cutsq;
    double* model_A;
@@ -1218,13 +1239,19 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    double* model_gamma;
    double* model_sigma;
    double* model_epsilon;
-   double* model_costhetat;
-   /* double* model_<FILL parameter 1>; */
-   /* double* model_<FILL parameter 2>; */
-   /* FILL as many parameters as needed */
+   double* model_costheta;
+   double* model_cutsq23;
+
    int ier;
    struct model_buffer* buffer;
    const char* NBCstr;
+   double* cutoff;
+   int num_species;
+   int num_interactions;
+   fpos_t filepos;
+   char dummy[255];
+   double tmp;
+   int i;
 
    /* set paramfile1name */
    if (*numparamfiles != 1)
@@ -1251,249 +1278,182 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    if (fid == NULL)
    {
       ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "Unable to open parameter file for Three_Body_Stillinger_Weber parameters", ier);
+      KIM_API_report_error(__LINE__, __FILE__, "Unable to open parameter file", ier);
       return ier;
    }
 
-   ier = fscanf(fid, "%lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n",
-                        &A,
-                        &B,
-                        &p,
-                        &q,
-                        &a,
-                        &lambda,
-                        &gamma,
-                        &sigma,
-                        &epsilon,
-                        &costhetat
-                        /* &<FILL parameter 1>, */
-                        /* &<FILL parameter 2>, */
-                        /* FILL as many parameters as needed */
-                        );
-   fclose(fid);
-
-   /* check that we read the right number of parameters */
-   if (10 != ier)
+   /* read number of species */
+   /* get rid of comments */
+   fgetpos(fid, &filepos);
+   fgets(dummy, 255, fid);
+   while (dummy[0] == '#') {
+     fgetpos(fid, &filepos);
+     fgets(dummy, 255, fid);
+   }
+   fsetpos(fid, &filepos);
+   
+   ier = fscanf(fid, "%d\n", &num_species);
+   if (ier =! 1)
    {
       ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "Unable to read all SW parameters", ier);
+      KIM_API_report_error(__LINE__, __FILE__, "error reading first line of parameter file", ier);
+      return ier;
+   }
+   if(num_species > 2)
+   {
+      ier = KIM_STATUS_FAIL;
+      KIM_API_report_error(__LINE__, __FILE__, "more than 2 species specified in parameter fil ", ier);
+      return ier;
+   }
+   num_interactions = (num_species + 1)*num_species/2;  
+
+
+   /* allocate memory for parameters */
+   model_cutoff = (double*) malloc(num_interactions*sizeof(double));  
+   model_cutsq = (double*) malloc(num_interactions*sizeof(double));  
+   model_A = (double*) malloc(num_interactions*sizeof(double));  
+   model_B = (double*) malloc(num_interactions*sizeof(double));  
+   model_p = (double*) malloc(num_interactions*sizeof(double));  
+   model_q = (double*) malloc(num_interactions*sizeof(double));  
+   model_a = (double*) malloc(num_interactions*sizeof(double));  
+   model_lambda = (double*) malloc(num_interactions*sizeof(double));  
+   model_gamma = (double*) malloc(num_interactions*sizeof(double));  
+   model_sigma = (double*) malloc(num_interactions*sizeof(double));  
+   model_epsilon = (double*) malloc(num_interactions*sizeof(double));  
+   model_costheta = (double*) malloc(num_interactions*sizeof(double));  
+   model_cutsq23 = (double*) malloc(num_species*sizeof(double));  
+
+   if( model_cutoff==NULL
+     || model_cutsq==NULL
+     || model_A==NULL
+     || model_B==NULL
+     || model_p==NULL
+     || model_q==NULL
+     || model_a==NULL
+     || model_lambda==NULL
+     || model_gamma==NULL
+     || model_sigma==NULL
+     || model_epsilon==NULL
+     || model_costheta==NULL )
+   {
+      ier = KIM_STATUS_FAIL;
+      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
       return ier;
    }
 
-   /* convert to appropriate units */
-   A *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
+   /* read parameters */
+   for (i=0; i< num_interactions; ++i) {
+     /* get rid of comments */
+     fgetpos(fid, &filepos);
+     fgets(dummy, 255, fid);
+     while (dummy[0] == '#') {
+       fgetpos(fid, &filepos);
+       fgets(dummy, 255, fid);
+     }
+     fsetpos(fid, &filepos);
+
+     ier = fscanf(fid, "%lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n %lf\n",
+                  &model_A[i],
+                  &model_B[i],
+                  &model_p[i],
+                  &model_q[i],
+                  &model_a[i],
+                  &model_lambda[i],
+                  &model_gamma[i],
+                  &model_sigma[i],
+                  &model_epsilon[i],
+                  &model_costheta[i]);
+     /* check that we read the right number of parameters */
+     if (10 != ier)
+     {
+       ier = KIM_STATUS_FAIL;
+       KIM_API_report_error(__LINE__, __FILE__, "corrupted parameter file", ier);
+       return ier;
+     }
    }
 
-   B *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
+   /* read cutoff for 23 interactions */
+   if (num_species == 2) {
+     /* get rid of comments */
+     fgetpos(fid, &filepos);
+     fgets(dummy, 255, fid);
+     while (dummy[0] == '#') {
+       fgetpos(fid, &filepos);
+       fgets(dummy, 255, fid);
+     }
+     fsetpos(fid, &filepos);
+     
+     fscanf(fid, "%lf", &tmp); 
+     model_cutsq23[0] = tmp*tmp;
+
+     /* get rid of comments */
+     fgetpos(fid, &filepos);
+     fgets(dummy, 255, fid);
+     while (dummy[0] == '#') {
+       fgetpos(fid, &filepos);
+       fgets(dummy, 255, fid);
+     }
+     fsetpos(fid, &filepos);
+
+     fscanf(fid, "%lf", &tmp); 
+     model_cutsq23[1] = tmp*tmp;
    }
 
-   p *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
+   /* close param file */
+   fclose(fid);
+ 
+   
+   /* convert units */
+   for (i=0; i< num_interactions; ++i) {
+     model_sigma[i] *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
+         1.0, 0.0,  0.0, 0.0, 0.0, &ier);
+     if (KIM_STATUS_OK > ier)
+     {
+       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
+       return ier;
+     }
+
+     model_epsilon[i] *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
+         0.0, 1.0,  0.0, 0.0, 0.0, &ier);
+     if (KIM_STATUS_OK > ier)
+     {
+       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
+       return ier;
+     }
    }
 
-   q *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
-   }
-
-   a *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
-   }
-
-   lambda *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
-   }
-
-   gamma *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
-   }
-
-   sigma *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               1.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
-   }
-
-   epsilon *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 1.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
-   }
-
-   costhetat *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
-                                               0.0, 0.0,  0.0, 0.0, 0.0, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_convert_to_act_unit", ier);
-      return ier;
-   }
-   /* FILL as many parameters as necessary */
 
    /* store model cutoff in KIM object */
-   model_cutoff = (double*) KIM_API_get_data(pkim, "cutoff", &ier);
+   cutoff = (double*) KIM_API_get_data(pkim, "cutoff", &ier);
    if (KIM_STATUS_OK > ier)
    {
       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_get_data", ier);
       return ier;
    }
-   *model_cutoff = a*sigma;
-
-   /* allocate memory for parameters */
-   model_Pcutoff = (double*) malloc(1*sizeof(double));
-   if (NULL == model_Pcutoff)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
+  
+   tmp = 0.0;
+   for (i=0; i< num_interactions; ++i) {
+     model_cutoff[i] = model_a[i]* model_sigma[i];
+     model_cutsq[i] = model_cutoff[i]*model_cutoff[i];
+     if ( model_cutoff[i] > tmp)
+       tmp = model_cutoff[i];
    }
-   model_cutsq = (double*) malloc(1*sizeof(double));
-   if (NULL == model_cutsq)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_A = (double*) malloc(1*sizeof(double));
-   if (NULL == model_A)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_B = (double*) malloc(1*sizeof(double));
-   if (NULL == model_B)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_p = (double*) malloc(1*sizeof(double));
-   if (NULL == model_p)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_q = (double*) malloc(1*sizeof(double));
-   if (NULL == model_q)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_a = (double*) malloc(1*sizeof(double));
-   if (NULL == model_a)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_lambda = (double*) malloc(1*sizeof(double));
-   if (NULL == model_lambda)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_gamma = (double*) malloc(1*sizeof(double));
-   if (NULL == model_gamma)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_sigma = (double*) malloc(1*sizeof(double));
-   if (NULL == model_sigma)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_epsilon = (double*) malloc(1*sizeof(double));
-   if (NULL == model_epsilon)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   model_costhetat = (double*) malloc(1*sizeof(double));
-   if (NULL == model_costhetat)
-   {
-      ier = KIM_STATUS_FAIL;
-      KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
-      return ier;
-   }
-   /* FILL: repeat above statements as many times as necessary for all parameters.
-      Use "FREE" and "FIXED" as appropriate. (Recall FREE parameters can be modified by
-      the calling routine. FIXED parameters depend on the FREE parameters and must be
-      appropriately adjusted in the reinit() method.)  */
-
+   *cutoff = tmp;
+   
    /* store parameters in KIM object */
    KIM_API_setm_data(pkim, &ier, 12*4,
-                             "PARAM_FREE_cutoff",   1,  model_Pcutoff,              1,
-                             "PARAM_FIXED_cutsq",   1,  model_cutsq,                1,
-                             "PARAM_FREE_A",        1,  model_A,                    1,
-                             "PARAM_FREE_B",        1,  model_B,                    1,
-                             "PARAM_FREE_p",        1,  model_p,                    1,
-                             "PARAM_FREE_q",        1,  model_q,                    1,
-                             "PARAM_FREE_a",        1,  model_a,                    1,
-                             "PARAM_FREE_lambda",   1,  model_lambda,               1,
-                             "PARAM_FREE_gamma",    1,  model_gamma,                1,
-                             "PARAM_FREE_sigma",    1,  model_sigma,                1,
-                             "PARAM_FREE_epsilon",  1,  model_epsilon,              1,
-                             "PARAM_FREE_costhetat", 1,  model_costhetat,           1
-                             /* FILL as many parameters as needed */
-                            );
-
-   /* set value of parameters */
-   *model_Pcutoff = *model_cutoff;
-   *model_cutsq = (*model_cutoff)*(*model_cutoff);
-   *model_A = A;
-   *model_B = B;
-   *model_p = p;
-   *model_q = q;
-   *model_a = a;
-   *model_lambda = lambda;
-   *model_gamma = gamma;
-   *model_sigma = sigma;
-   *model_epsilon = epsilon;
-   *model_costhetat = costhetat;
-   /* *model_<FILL parameter 1> = <FILL parameter 1>; */
-   /* *model_<FILL parameter 2> = <FILL parameter 2>; */
-   /* FILL as many parameters as needed */
+                             "PARAM_FREE_cutoff",    1,  model_cutoff,       1,
+                             "PARAM_FIXED_cutsq",    1,  model_cutsq,        1,
+                             "PARAM_FREE_A",         1,  model_A,            1,
+                             "PARAM_FREE_B",         1,  model_B,            1,
+                             "PARAM_FREE_p",         1,  model_p,            1,
+                             "PARAM_FREE_q",         1,  model_q,            1,
+                             "PARAM_FREE_a",         1,  model_a,            1,
+                             "PARAM_FREE_lambda",    1,  model_lambda,       1,
+                             "PARAM_FREE_gamma",     1,  model_gamma,        1,
+                             "PARAM_FREE_sigma",     1,  model_sigma,        1,
+                             "PARAM_FREE_epsilon",   1,  model_epsilon,      1,
+                             "PARAM_FREE_costheta",  1,  model_costheta,    1);
 
    /* allocate buffer */
    buffer = (struct model_buffer*) malloc(sizeof(struct model_buffer));
@@ -1502,7 +1462,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
       ier = KIM_STATUS_FAIL;
       KIM_API_report_error(__LINE__, __FILE__, "malloc", ier);
       return ier;
-   }
+   } 
 
    /* setup buffer */
    /* Determine neighbor list boundary condition (NBC) */
@@ -1577,10 +1537,11 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
 
    buffer->model_index_shift = KIM_API_get_model_index_shift(pkim);
 
-   KIM_API_getm_index(pkim, &ier, 12*3,
+   KIM_API_getm_index(pkim, &ier, 13*3,
                       "cutoff",                      &(buffer->cutoff_ind),                      1,
                       "numberOfParticles",           &(buffer->numberOfParticles_ind),           1,
-                      "particleSpecies",               &(buffer->particleSpecies_ind),               1,
+                      "numberOfSpecies",             &(buffer->numberOfSpecies_ind),             1,
+                      "particleSpecies",             &(buffer->particleSpecies_ind),             1,
                       "numberContributingParticles", &(buffer->numberContributingParticles_ind), 1,
                       "coordinates",                 &(buffer->coordinates_ind),                 1,
                       "get_neigh",                   &(buffer->get_neigh_ind),                   1,
@@ -1596,16 +1557,9 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_getm_index", ier);
       return ier;
    }
-   /* store in model buffer */
-   KIM_API_set_model_buffer(pkim, (void*) buffer, &ier);
-   if (KIM_STATUS_OK > ier)
-   {
-      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_set_model_buffer", ier);
-      return ier;
-   }
 
    /* store parameters in buffer */
-   buffer->Pcutoff    = model_Pcutoff;
+   buffer->cutoff     = model_cutoff;
    buffer->cutsq      = model_cutsq;
    buffer->A          = model_A;
    buffer->B          = model_B;
@@ -1616,10 +1570,16 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    buffer->gamma      = model_gamma;
    buffer->sigma      = model_sigma;
    buffer->epsilon    = model_epsilon;
-   buffer->costhetat  = model_costhetat;
-   /* buffer-><FILL parameter 1> = <FILL parameter 1>; */
-   /* buffer-><FILL parameter 2> = <FILL parameter 2>; */
-   /* FILL as many parameters as needed */
+   buffer->costheta   = model_costheta;
+   buffer->cutsq23    = model_cutsq23;
+
+   /* store in model buffer */
+   KIM_API_set_model_buffer(pkim, (void*) buffer, &ier);
+   if (KIM_STATUS_OK > ier)
+   {
+      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_set_model_buffer", ier);
+      return ier;
+   }
 
    ier = KIM_STATUS_OK;
    return ier;
@@ -1651,7 +1611,7 @@ static int reinit(void *km)
       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_get_data", ier);
       return ier;
    }
-   *cutoff = *buffer->Pcutoff;
+   *cutoff = *buffer->cutoff;
 
    /* set value of parameter cutsq */
    *buffer->cutsq = (*cutoff)*(*cutoff);
@@ -1679,7 +1639,7 @@ static int destroy(void *km)
    }
 
    /* free parameters */
-   free(buffer->Pcutoff);
+   free(buffer->cutoff);
    free(buffer->cutsq);
    free(buffer->A);
    free(buffer->B);
@@ -1690,7 +1650,8 @@ static int destroy(void *km)
    free(buffer->gamma);
    free(buffer->sigma);
    free(buffer->epsilon);
-   free(buffer->costhetat);
+   free(buffer->costheta);
+   free(buffer->cutsq23);
    /* FILL: repeat above statements as many times as necessary for all FREE and FIXED parameters. */
 
    /* destroy the buffer */
