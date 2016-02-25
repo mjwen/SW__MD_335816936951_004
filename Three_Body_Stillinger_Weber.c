@@ -1449,18 +1449,18 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    
    /* store parameters in KIM object */
    KIM_API_setm_data(pkim, &ier, 12*4,
-                             "PARAM_FREE_cutoff",   num_species,  model_cutoff,       1,
-                             "PARAM_FIXED_cutsq",   num_species,  model_cutsq,        1,
-                             "PARAM_FREE_A",        num_species,  model_A,            1,
-                             "PARAM_FREE_B",        num_species,  model_B,            1,
-                             "PARAM_FREE_p",        num_species,  model_p,            1,
-                             "PARAM_FREE_q",        num_species,  model_q,            1,
-                             "PARAM_FREE_a",        num_species,  model_a,            1,
-                             "PARAM_FREE_lambda",   num_species,  model_lambda,       1,
-                             "PARAM_FREE_gamma",    num_species,  model_gamma,        1,
-                             "PARAM_FREE_sigma",    num_species,  model_sigma,        1,
-                             "PARAM_FREE_epsilon",  num_species,  model_epsilon,      1,
-                             "PARAM_FREE_costheta", num_species,  model_costheta,    1);
+                             "PARAM_FREE_cutoff",   num_interactions,  model_cutoff,       1,
+                             "PARAM_FIXED_cutsq",   num_interactions,  model_cutsq,        1,
+                             "PARAM_FREE_A",        num_interactions,  model_A,            1,
+                             "PARAM_FREE_B",        num_interactions,  model_B,            1,
+                             "PARAM_FREE_p",        num_interactions,  model_p,            1,
+                             "PARAM_FREE_q",        num_interactions,  model_q,            1,
+                             "PARAM_FREE_a",        num_interactions,  model_a,            1,
+                             "PARAM_FREE_lambda",   num_interactions,  model_lambda,       1,
+                             "PARAM_FREE_gamma",    num_interactions,  model_gamma,        1,
+                             "PARAM_FREE_sigma",    num_interactions,  model_sigma,        1,
+                             "PARAM_FREE_epsilon",  num_interactions,  model_epsilon,      1,
+                             "PARAM_FREE_costheta", num_interactions,  model_costheta,    1);
 
    /* allocate buffer */
    buffer = (struct model_buffer*) malloc(sizeof(struct model_buffer));
