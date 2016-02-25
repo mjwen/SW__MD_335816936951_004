@@ -141,8 +141,9 @@ struct model_buffer {
    double* sigma;
    double* epsilon;
    double* costheta;
-   double* cutsq23;    /* additional cutoff for 2 3 atoms (ONLY needed if two species are in configuration) */ };
-
+   double* cutsq23;    /* additional cutoff for 2 3 atoms (ONLY needed if two species are in configuration) */ 
+   double* aTsigma;    /* a times sigma */
+};
 
 /* Calculate pair potential phi_two(r) */
 static void calc_phi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
@@ -769,6 +770,8 @@ static int compute(void* km)
             cutsq23 = &(buffer->cutsq23)[0];
           else if (iSpecies == SPEC2 && jSpecies==SPEC1)
             cutsq23 = &(buffer->cutsq23)[1];
+          else 
+            cutsq23 = NULL;
         }
 
          /* compute relative position vector and squared distance */
@@ -952,7 +955,7 @@ static int compute(void* km)
            /* compute energy and force */
 
            if (Rsqik > *cutsq) continue; /* particles are interacting ? */
-           if (*nSpecies == 2 && Rsqjk > *cutsq23) continue; /* i-j-k, j and k particles are interacting? */
+           if (*nSpecies == 2 && Rsqjk > *cutsq23) continue; /* j and k particles are interacting? */
             
             R2 = sqrt(Rsqik);
             R3 = sqrt(Rsqjk);
@@ -1241,6 +1244,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    double* model_epsilon;
    double* model_costheta;
    double* model_cutsq23;
+   double* model_aTsigma;
 
    int ier;
    struct model_buffer* buffer;
@@ -1321,7 +1325,9 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    model_sigma = (double*) malloc(num_interactions*sizeof(double));  
    model_epsilon = (double*) malloc(num_interactions*sizeof(double));  
    model_costheta = (double*) malloc(num_interactions*sizeof(double));  
+   
    model_cutsq23 = (double*) malloc(num_species*sizeof(double));  
+   model_aTsigma = (double*) malloc(num_interactions*sizeof(double));  
 
    if( model_cutoff==NULL
      || model_cutsq==NULL
@@ -1435,6 +1441,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    for (i=0; i< num_interactions; ++i) {
      model_cutoff[i] = model_a[i]* model_sigma[i];
      model_cutsq[i] = model_cutoff[i]*model_cutoff[i];
+     model_aTsigma[i] = model_a[i]* model_sigma[i];
      if ( model_cutoff[i] > tmp)
        tmp = model_cutoff[i];
    }
@@ -1442,18 +1449,18 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    
    /* store parameters in KIM object */
    KIM_API_setm_data(pkim, &ier, 12*4,
-                             "PARAM_FREE_cutoff",    1,  model_cutoff,       1,
-                             "PARAM_FIXED_cutsq",    1,  model_cutsq,        1,
-                             "PARAM_FREE_A",         1,  model_A,            1,
-                             "PARAM_FREE_B",         1,  model_B,            1,
-                             "PARAM_FREE_p",         1,  model_p,            1,
-                             "PARAM_FREE_q",         1,  model_q,            1,
-                             "PARAM_FREE_a",         1,  model_a,            1,
-                             "PARAM_FREE_lambda",    1,  model_lambda,       1,
-                             "PARAM_FREE_gamma",     1,  model_gamma,        1,
-                             "PARAM_FREE_sigma",     1,  model_sigma,        1,
-                             "PARAM_FREE_epsilon",   1,  model_epsilon,      1,
-                             "PARAM_FREE_costheta",  1,  model_costheta,    1);
+                             "PARAM_FREE_cutoff",   num_species,  model_cutoff,       1,
+                             "PARAM_FIXED_cutsq",   num_species,  model_cutsq,        1,
+                             "PARAM_FREE_A",        num_species,  model_A,            1,
+                             "PARAM_FREE_B",        num_species,  model_B,            1,
+                             "PARAM_FREE_p",        num_species,  model_p,            1,
+                             "PARAM_FREE_q",        num_species,  model_q,            1,
+                             "PARAM_FREE_a",        num_species,  model_a,            1,
+                             "PARAM_FREE_lambda",   num_species,  model_lambda,       1,
+                             "PARAM_FREE_gamma",    num_species,  model_gamma,        1,
+                             "PARAM_FREE_sigma",    num_species,  model_sigma,        1,
+                             "PARAM_FREE_epsilon",  num_species,  model_epsilon,      1,
+                             "PARAM_FREE_costheta", num_species,  model_costheta,    1);
 
    /* allocate buffer */
    buffer = (struct model_buffer*) malloc(sizeof(struct model_buffer));
@@ -1572,6 +1579,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    buffer->epsilon    = model_epsilon;
    buffer->costheta   = model_costheta;
    buffer->cutsq23    = model_cutsq23;
+   buffer->aTsigma    = model_aTsigma;
 
    /* store in model buffer */
    KIM_API_set_model_buffer(pkim, (void*) buffer, &ier);
@@ -1593,6 +1601,12 @@ static int reinit(void *km)
    int ier;
    double *cutoff;
    struct model_buffer* buffer;
+   int* nSpecies;
+   int num_interactions;
+   double* sigma;
+   double* a;
+   double* aTsigma;  /* a times sigma */
+   int i;
 
    /* get buffer from KIM object */
    buffer = (struct model_buffer*) KIM_API_get_model_buffer(pkim, &ier);
@@ -1605,18 +1619,29 @@ static int reinit(void *km)
    /* set new values in KIM object     */
    /*                                  */
    /* store model cutoff in KIM object */
-   cutoff = KIM_API_get_data(pkim, "cutoff", &ier);
+/*   cutoff = KIM_API_get_data(pkim, "cutoff", &ier);
    if (KIM_STATUS_OK > ier)
    {
       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_get_data", ier);
       return ier;
    }
    *cutoff = *buffer->cutoff;
-
+*/
    /* set value of parameter cutsq */
-   *buffer->cutsq = (*cutoff)*(*cutoff);
+/*   *buffer->cutsq = (*cutoff)*(*cutoff);
+*/
 
-   /* FILL: store any other FIXED parameters whose values depend on FREE parameters */
+   nSpecies = KIM_API_get_data_by_index(pkim, buffer->numberOfSpecies_ind, &ier);
+   num_interactions = (*nSpecies + 1)*(*nSpecies)/2;
+
+   /* update a corresponding to sigma, to ensure that a*sigma is constant */
+   sigma = buffer->sigma; 
+   a = buffer->a; 
+   aTsigma = buffer->aTsigma;
+
+   for (i=0; i<num_interactions; i++) {
+     a[i] = aTsigma[i]/sigma[i]; 
+   }
 
    ier = KIM_STATUS_OK;
    return ier;
@@ -1652,6 +1677,7 @@ static int destroy(void *km)
    free(buffer->epsilon);
    free(buffer->costheta);
    free(buffer->cutsq23);
+   free(buffer->aTsigma);
    /* FILL: repeat above statements as many times as necessary for all FREE and FIXED parameters. */
 
    /* destroy the buffer */

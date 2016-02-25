@@ -108,24 +108,24 @@ MODEL_PARAMETERS:
 
 PARAM_FREE_cutoff           double       length                 []                optional
 
-PARAM_FREE_A                double       none                   []
+PARAM_FREE_A                double       none                   [:]
 
-PARAM_FREE_B                double       none                   []
+PARAM_FREE_B                double       none                   [:]
 
-PARAM_FREE_p                double       none                   []
+PARAM_FREE_p                double       none                   [:]
 
-PARAM_FREE_q                double       none                   []
+PARAM_FREE_q                double       none                   [:]
 
-PARAM_FREE_a                double       none                   []
+PARAM_FREE_a                double       none                   [:]
 
-PARAM_FREE_lambda           double       none                   []
+PARAM_FREE_lambda           double       none                   [:]
 
-PARAM_FREE_gamma            double       none                   []
+PARAM_FREE_gamma            double       none                   [:]
 
-PARAM_FREE_sigma            double       length                 []
+PARAM_FREE_sigma            double       length                 [:]
 
-PARAM_FREE_epsilon          double       energy                 []
+PARAM_FREE_epsilon          double       energy                 [:]
 
-PARAM_FREE_costheta         double       none                   []
+PARAM_FREE_costheta         double       none                   [:]
 
-PARAM_FIXED_cutsq           double       length                 []
+PARAM_FIXED_cutsq           double       length                 [:]
