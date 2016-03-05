@@ -26,6 +26,7 @@
 #    Ellad B. Tadmor
 #    Valeriu Smirichinski
 #    Amit Singh
+#    Mingjian Wen
 
 KIM_API_Version := 1.6.0
 
@@ -54,9 +55,12 @@ Neigh_IterAccess            flag
 
 Neigh_LocaAccess            flag
 
-NEIGH_PURE_F                flag
+MI_OPBC_F                   flag
 
 NEIGH_RVEC_F                flag
+
+NEIGH_PURE_F                flag
+
 
 #######################################################################################################
 MODEL_INPUT:
@@ -66,9 +70,9 @@ numberOfParticles           integer      none                []
 
 numberContributingParticles integer      none                []                  optional
 
-numberOfSpecies         integer      none                []
+numberOfSpecies             integer      none                []
 
-particleSpecies               integer      none                [numberOfParticles]
+particleSpecies             integer      none                [numberOfParticles]
 
 coordinates                 double       length              [numberOfParticles,3]
 
@@ -106,26 +110,26 @@ process_d2Edr2              method       none                []                 
 MODEL_PARAMETERS:
 # Name                      Type         Unit                Shape              Requirements
 
-PARAM_FREE_cutoff           double       length                 []                optional
+PARAM_FREE_cutoff           double       length               [:]                optional
 
-PARAM_FREE_A                double       none                   [:]
+PARAM_FREE_A                double       none                 [:]
 
-PARAM_FREE_B                double       none                   [:]
+PARAM_FREE_B                double       none                 [:]
 
-PARAM_FREE_p                double       none                   [:]
+PARAM_FREE_p                double       none                 [:]
 
-PARAM_FREE_q                double       none                   [:]
+PARAM_FREE_q                double       none                 [:]
 
-PARAM_FREE_a                double       none                   [:]
+PARAM_FREE_a                double       none                 [:]
 
-PARAM_FREE_lambda           double       none                   [:]
+PARAM_FREE_lambda           double       none                 [:]
 
-PARAM_FREE_gamma            double       none                   [:]
+PARAM_FREE_gamma            double       none                 [:]
 
-PARAM_FREE_sigma            double       length                 [:]
+PARAM_FREE_sigma            double       length               [:]
 
-PARAM_FREE_epsilon          double       energy                 [:]
+PARAM_FREE_epsilon          double       energy               [:]
 
-PARAM_FREE_costheta         double       none                   [:]
+PARAM_FREE_costheta         double       none                 [:]
 
-PARAM_FIXED_cutsq           double       length                 [:]
+PARAM_FIXED_cutsq           double       length               [:]

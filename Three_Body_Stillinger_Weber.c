@@ -27,6 +27,7 @@
 *    Ellad B. Tadmor
 *    Valeriu Smirichinski
 *    Amit Singh
+*    Mingjian Wen
 */
 
 /*******************************************************************************
@@ -37,22 +38,23 @@
 *
 *  Language: C
 *
-*  Release:
 *
 *******************************************************************************/
 /*******************************************************************************
 
-* For three-body potential any potential energy function for N-particle system can be written in the
-* following form of two-body and three-body terms:
-     F(1, 2, ...., N)   = sum_{i; 1 <= i < j <= N} phi_two(r; r = r_ij)
-                          + sum_{i; 1 <= i \neq j < k <= N} phi_three(r_ij, r_ik, r_jk);
+* For three-body potential any potential energy function for N-particle system 
+* can be written in the following form of two-body and three-body terms:
+
+     F(1, 2, ...., N) = sum_{i; 1 <= i < j <= N} phi_two(r; r = r_ij)
+                       + sum_{i; 1 <= i \neq j < k <= N} phi_three(r_ij, r_ik, r_jk);
 
 * For Stillinger-Weber, two-body term phi_two is
 
      phi_two(r) = epsilon * f_2(r_cap; r_cap = r/sigma); where f_2 is
 
-     f_2(r_cap) = A * ( B*r_cap^(-p) - r_cap^-q ) * exp(1/(r_cap - a)); when  r_cap <  a
-                = 0   when r_cap >= a
+     f_2(r_cap) = A * ( B*r_cap^(-p) - r_cap^-q ) * exp(sigma/(r - cutoff)); 
+                  when r < cutoff 
+                = 0;   otherwise
 
 * and three-body term phi_three is
 
@@ -60,8 +62,10 @@
 
      r1_cap = r_ij/sigma, r2_cap = r_ik/sigma, r3_cap = r_jk/sigma,      and
 
-     f_3(r1_cap, r2_cap, r3_cap) = lambda * (exp(gamma((1/(r1_cap - a)) + (1/(r2_cap - a))))) * (costheta_jik - costheta_0)^2;  when r1_cap < a && r2_cap < a
-                                 = 0;                                                                                           otherwise
+     f_3(r1_cap, r2_cap, r3_cap) = lambda * (exp(gamma((sigma/(r1 - cutoff)) + 
+                                   (sigma/(r2 - cutoff))))) * (costheta_jik - costheta_0)^2;
+                                   when r1 < cutoff && r2 < cutoff && r3 < cutoff_jk 
+                                 = 0;   otherwise
 
      costheta_jik = (r_ij^2 + r_ik^2 - r_jk^2) / (2*r_ij*r_ik).
 
@@ -94,19 +98,26 @@ static int reinit(void* km);
 static int destroy(void* km);
 static int compute(void* km);
 /**/
-static void calc_phi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
-                         double r, double* phi);
-static void calc_phi_dphi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
+static void calc_phi_two(double* A, double* B, double* p, double* q, double* cutoff,
+                         double* sigma, double* epsilon, double r, double* phi);
+static void calc_phi_dphi_two(double* A, double* B, double* p, double* q,
+                              double* cutoff, double* sigma, double* epsilon,
                               double r, double* phi, double* dphi);
-static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
+static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q,
+                               double* cutoff, double* sigma, double* epsilon,
                                double r, double* phi, double* dphi, double* d2phi);
 
-static void calc_phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
+static void calc_phi_three(double* cutoff, double* lambda, double* gamma, double* sigma,
+                           double* epsilon, double* costheta,
                            double rij, double rik, double rjk, double* phi);
-static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
-                                double rij, double rik, double rjk, double* phi, double* dphi);
-static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
-                                 double rij, double rik, double rjk, double* phi, double* dphi, double* d2phi);
+static void calc_phi_dphi_three(double* cutoff, double* lambda, double* gamma,
+                                double* sigma, double* epsilon, double* costheta,
+                                double rij, double rik, double rjk, double* phi,
+                                double* dphi);
+static void calc_phi_d2phi_three(double* cutoff, double* lambda, double* gamma,
+                                 double* sigma, double* epsilon, double* costheta,
+                                 double rij, double rik, double rjk, double* phi,
+                                 double* dphi, double* d2phi);
 
 /* Define model_buffer structure */
 struct model_buffer {
@@ -135,39 +146,39 @@ struct model_buffer {
    double* B;
    double* p;
    double* q;
-   double* a;
    double* lambda;
    double* gamma;
    double* sigma;
    double* epsilon;
    double* costheta;
-   double* cutsq23;    /* additional cutoff for 2 3 atoms (ONLY needed if two species are in configuration) */ 
-   double* aTsigma;    /* a times sigma */
+   double* cutsq_jk; 
 };
 
 /* Calculate pair potential phi_two(r) */
-static void calc_phi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
-                         double r, double* phi)
+static void calc_phi_two(double* A, double* B, double* p, double* q, double* cutoff,
+                         double* sigma, double* epsilon, double r, double* phi)
 {
-   /* Local variables */
+  /* Local variables */
    double r_cap;
 
    r_cap = r/(*sigma);
 
-   if (r_cap >=  *a)
+   if (r >= *cutoff)
    {
       *phi = 0.0;
    }
    else
    {
-      *phi = (*epsilon) * (*A) * ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * exp(1/(r_cap - *a));
+      *phi = (*epsilon) * (*A) * ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) )
+              * exp(*sigma/(r - *cutoff));
    }
 
    return;
 }
 
 /* Calculate pair potential phi_two(r) and its derivative dphi_two(r) */
-static void calc_phi_dphi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
+static void calc_phi_dphi_two(double* A, double* B, double* p, double* q,
+                              double* cutoff, double* sigma, double* epsilon,
                               double r, double* phi, double* dphi)
 {
    /* Local variables */
@@ -175,25 +186,27 @@ static void calc_phi_dphi_two(double* A, double* B, double* p, double* q, double
 
    r_cap = r/(*sigma);
 
-   if (r_cap >= *a)
+   if (r >= *cutoff)
    {
       *phi = 0.0;
       *dphi = 0.0;
    }
    else
    {
-      *phi = (*epsilon) * (*A) * ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * exp(1/(r_cap - *a));
+      *phi = (*epsilon) * (*A) * ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) )
+      * exp(*sigma/(r - *cutoff));
 
       *dphi =  ( (*q) * pow(r_cap,-((*q)+1)) - (*p * (*B)) * pow(r_cap,-((*p)+1)) )
-                  - ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * pow((r_cap - *a),-2);
-      *dphi *= (*epsilon / *sigma) * (*A) * exp(1/(r_cap - *a));
+       - ((*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * pow(((r - *cutoff)/(*sigma)),-2);
+      *dphi *= (*epsilon / *sigma) * (*A) * exp(*sigma/(r - *cutoff));
    }
 
    return;
 }
 
 /* Calculate pair potential phi_two(r) and its 1st & 2nd derivatives dphi_two(r), d2phi_two(r) */
-static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, double* a, double* sigma, double* epsilon,
+static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, double* cutoff,
+                               double* sigma, double* epsilon,
                                double r, double* phi, double* dphi, double* d2phi)
 {
    /* Local variables */
@@ -201,7 +214,7 @@ static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, doubl
 
    r_cap = r/(*sigma);
 
-   if (r_cap >= *a)
+   if (r >= *cutoff)
    {
       *phi = 0.0;
       *dphi = 0.0;
@@ -209,16 +222,20 @@ static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, doubl
    }
    else
    {
-      *phi = (*epsilon) * (*A) * ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * exp(1/(r_cap - *a));
+      *phi = (*epsilon) * (*A) * ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) )
+              * exp(*sigma/(r - *cutoff));
 
-      *dphi =  ( (*q) * pow(r_cap,-((*q)+1)) - (*p * *B) * pow(r_cap,-((*p)+1)) )
-                  - ( (*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * pow((r_cap - *a),-2);
-      *dphi *= (*epsilon / *sigma) * (*A) * exp(1/(r_cap - *a));
+      *dphi =  ( (*q) * pow(r_cap,-((*q)+1)) - (*p * (*B)) * pow(r_cap,-((*p)+1)) )
+        - ((*B) * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * pow(((r - *cutoff)/(*sigma)),-2);
+      *dphi *= (*epsilon / *sigma) * (*A) * exp(*sigma/(r - *cutoff));
 
-      *d2phi = ( *B * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * ( pow((r_cap - *a),-4) + 2*pow((r_cap - *a),-3) )
-                  + 2 * ( *p * *B *pow(r_cap,-(*p + 1)) - *q * pow(r_cap,-(*q + 1)) ) * pow((r_cap - *a),-2)
-                  + ( *p * (*p + 1) *  *B * pow(r_cap,-(*p + 2)) - *q * (*q + 1) * pow(r_cap,-(*q + 2)) );
-      *d2phi *= (*epsilon / (*sigma * *sigma)) * (*A) * exp(1/(r_cap - *a));
+      *d2phi = ( *B * pow(r_cap,-(*p)) - pow(r_cap,-(*q)) ) * 
+               ( pow(((r - *cutoff)/(*sigma)),-4) + 2*pow(((r - *cutoff)/(*sigma)),-3) )
+               + 2 * ( *p * *B *pow(r_cap,-(*p + 1)) - *q * pow(r_cap,-(*q + 1)) )
+               * pow(((r - *cutoff)/(*sigma)),-2)
+               + ( *p * (*p + 1) *  *B * pow(r_cap,-(*p + 2)) - *q * (*q + 1)
+               * pow(r_cap,-(*q + 2)) );
+      *d2phi *= (*epsilon / (*sigma * *sigma)) * (*A) * exp((*sigma)/(r - *cutoff));
    }
 
    return;
@@ -226,7 +243,8 @@ static void calc_phi_d2phi_two(double* A, double* B, double* p, double* q, doubl
 }
 
 /* Calculate pair potential phi_three(rij, rik, rjk) */
-static void calc_phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
+static void calc_phi_three(double* cutoff, double* lambda, double* gamma, double* sigma,
+                           double* epsilon, double* costheta,
                            double rij, double rik, double rjk, double* phi)
 {
    /* local variables */
@@ -252,9 +270,9 @@ static void calc_phi_three(double* a, double* lambda, double* gamma, double* sig
 
    diff_costhetajik = costhetajik - *costheta;
 
-   exp_ij_ik = exp((*gamma) * (1/(rij_cap - *a) + 1/(rik_cap - *a)));
+   exp_ij_ik = exp((*gamma) * (*sigma/(rij - *cutoff) + *sigma/(rik - *cutoff)));
 
-   if ((rij_cap < *a) && (rik_cap < *a))
+   if ((rij < *cutoff) && (rik < *cutoff))
    {
      *phi  = c1 * exp_ij_ik * diff_costhetajik *  diff_costhetajik;
    }
@@ -267,7 +285,8 @@ static void calc_phi_three(double* a, double* lambda, double* gamma, double* sig
 
   dphi has three components as derivatives of phi w.r.t. rij, rik, rjk
 */
-static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
+static void calc_phi_dphi_three(double* cutoff, double* lambda, double* gamma, 
+                                double* sigma, double* epsilon, double* costheta,
                                 double rij, double rik, double rjk, double* phi, double* dphi)
 {
    /* local variables */
@@ -309,19 +328,19 @@ static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double
    costhetajik_jk = -(*sigma)*rjk/(rij*rik);
 
    /* Variables for simplifying terms */
-   exp_ij_ik = exp((*gamma) * (1/(rij_cap - *a) + 1/(rik_cap - *a)));
+   exp_ij_ik = exp((*gamma) * (*sigma/(rij - *cutoff) + *sigma/(rik - *cutoff)));
 
-   d_ij = -(*gamma)*pow((rij_cap - *a),-2);
-   d_ik = -(*gamma)*pow((rik_cap - *a),-2);
-   d_jk = -(*gamma)*pow((rjk_cap - *a),-2);
+   d_ij = -(*gamma)*pow(((rij - *cutoff)/(*sigma)),-2);
+   d_ik = -(*gamma)*pow(((rik - *cutoff)/(*sigma)),-2);
+   d_jk = -(*gamma)*pow(((rjk - *cutoff)/(*sigma)),-2);
 
 
-   if ((rij_cap < *a) && (rik_cap < *a))
+   if ((rij < *cutoff) && (rik < *cutoff))
    {
      *phi  = c1 * exp_ij_ik * diff_costhetajik *  diff_costhetajik;
-     dphi[0] = c2 * diff_costhetajik * exp_ij_ik *  (d_ij * diff_costhetajik   +  2 * costhetajik_ij);
-     dphi[1] = c2 * diff_costhetajik * exp_ij_ik *  (d_ik * diff_costhetajik   +  2 * costhetajik_ik);
-     dphi[2] = c2 * diff_costhetajik * exp_ij_ik *  2 * costhetajik_jk;
+     dphi[0] = c2 * diff_costhetajik * exp_ij_ik * (d_ij * diff_costhetajik + 2*costhetajik_ij);
+     dphi[1] = c2 * diff_costhetajik * exp_ij_ik * (d_ik * diff_costhetajik + 2*costhetajik_ik);
+     dphi[2] = c2 * diff_costhetajik * exp_ij_ik * 2 * costhetajik_jk;
    }
 
    return;
@@ -336,8 +355,10 @@ static void calc_phi_dphi_three(double* a, double* lambda, double* gamma, double
                                                                             [1]=(ik,ik), [5]=(ik,jk)
                                                                                          [2]=(jk,jk)
 */
-static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, double* sigma, double* epsilon, double* costheta,
-                                 double rij, double rik, double rjk, double* phi, double* dphi, double* d2phi)
+static void calc_phi_d2phi_three(double* cutoff, double* lambda, double* gamma,
+                                 double* sigma, double* epsilon, double* costheta,
+                                 double rij, double rik, double rjk, double* phi,
+                                 double* dphi, double* d2phi)
 {
     /* local variables */
    double c1;
@@ -407,26 +428,26 @@ static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, doubl
    costhetajik_ik_jk = (*sigma * *sigma)*rjk/(rik*rik*rij);
 
    /* Variables for simplifying terms */
-   exp_ij_ik = exp((*gamma) * (1/(rij_cap - *a) + 1/(rik_cap - *a)));
+   exp_ij_ik = exp((*gamma) * (*sigma/(rij - *cutoff) + *sigma/(rik - *cutoff)));
 
-   d_ij = -(*gamma)*pow((rij_cap - *a),-2);
-   d_ik = -(*gamma)*pow((rik_cap - *a),-2);
-   d_jk = -(*gamma)*pow((rjk_cap - *a),-2);
+   d_ij = -(*gamma)*pow((rij - *cutoff)/(*sigma),-2);
+   d_ik = -(*gamma)*pow((rik - *cutoff)/(*sigma),-2);
+   d_jk = -(*gamma)*pow((rjk - *cutoff)/(*sigma),-2);
 
    d_ij_2 = d_ij * d_ij;
    d_ik_2 = d_ik * d_ik;
    d_jk_2 = d_jk * d_jk;
 
-   dd_ij = (2 * *gamma)*pow((rij_cap - *a),-3);
-   dd_ik = (2 * *gamma)*pow((rik_cap - *a),-3);
-   dd_jk = (2 * *gamma)*pow((rjk_cap - *a),-3);
+   dd_ij = (2 * *gamma)*pow((rij - *cutoff)/(*sigma),-3);
+   dd_ik = (2 * *gamma)*pow((rik - *cutoff)/(*sigma),-3);
+   dd_jk = (2 * *gamma)*pow((rjk - *cutoff)/(*sigma),-3);
 
    *phi  = 0.0;
    dphi[0] = dphi[1] = dphi[2] = 0.0;
    d2phi[0] = d2phi[1] = d2phi[2] = 0.0;
    d2phi[3] = d2phi[4] = d2phi[5] = 0.0;
 
-   if ((rij_cap < *a) && (rik_cap < *a))
+   if ((rij < *cutoff) && (rik < *cutoff))
    {
      *phi  += exp_ij_ik * diff_costhetajik_2;
      dphi[0] += diff_costhetajik * exp_ij_ik *  (d_ij * diff_costhetajik   +  2 * costhetajik_ij);
@@ -434,14 +455,19 @@ static void calc_phi_d2phi_three(double* a, double* lambda, double* gamma, doubl
      dphi[2] += diff_costhetajik * exp_ij_ik *  2 * costhetajik_jk;
 
      d2phi[0] += exp_ij_ik * ((d_ij_2 + dd_ij) * diff_costhetajik_2 +
-                  (4 * d_ij * costhetajik_ij + 2 * costhetajik_ij_ij) * diff_costhetajik + 2 * costhetajik_ij * costhetajik_ij);
+                  (4 * d_ij * costhetajik_ij + 2 * costhetajik_ij_ij) *
+                  diff_costhetajik + 2 * costhetajik_ij * costhetajik_ij);
      d2phi[1] += exp_ij_ik * ((d_ik_2 + dd_ik) * diff_costhetajik_2 +
-                  (4 * d_ik * costhetajik_ik + 2 * costhetajik_ik_ik) * diff_costhetajik + 2 * costhetajik_ik * costhetajik_ik);
-     d2phi[2] += 2 * exp_ij_ik * ( costhetajik_jk_jk * diff_costhetajik +  costhetajik_jk * costhetajik_jk);
+                  (4 * d_ik * costhetajik_ik + 2 * costhetajik_ik_ik) *
+                  diff_costhetajik + 2 * costhetajik_ik * costhetajik_ik);
+     d2phi[2] += 2 * exp_ij_ik * ( costhetajik_jk_jk * diff_costhetajik + costhetajik_jk * costhetajik_jk);
      d2phi[3] += exp_ij_ik * (d_ij * d_ik * diff_costhetajik_2 +
-                  (d_ij * costhetajik_ik + d_ik * costhetajik_ij + costhetajik_ij_ik) * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_ik);
-     d2phi[4] += exp_ij_ik * ((d_ij * costhetajik_jk + costhetajik_ij_jk) * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_jk);
-     d2phi[5] += exp_ij_ik * ((d_ik * costhetajik_jk + costhetajik_ik_jk) * 2 * diff_costhetajik + 2 * costhetajik_ik * costhetajik_jk);
+                 (d_ij * costhetajik_ik + d_ik * costhetajik_ij + costhetajik_ij_ik) *
+                 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_ik);
+     d2phi[4] += exp_ij_ik * ((d_ij * costhetajik_jk + costhetajik_ij_jk) * 
+                 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_jk);
+     d2phi[5] += exp_ij_ik * ((d_ik * costhetajik_jk + costhetajik_ik_jk) *
+                 2 * diff_costhetajik + 2 * costhetajik_ik * costhetajik_jk);
    }
 
    *phi  *= c1;
@@ -532,7 +558,7 @@ static int compute(void* km)
    double* sigma;
    double* epsilon;
    double* costheta;
-   double* cutsq23;
+   double* cutsq_jk;
    double* Rij_list;
    double* coords;
    double* energy;
@@ -581,14 +607,13 @@ static int compute(void* km)
       return ier;
    }
 
-   KIM_API_getm_data_by_index(pkim, &ier, 10*3,
-                              buffer->cutoff_ind,                      &cutoff,         1,
+   KIM_API_getm_data_by_index(pkim, &ier, 9*3,
                               buffer->numberOfParticles_ind,           &nAtoms,         1,
                               buffer->numberOfSpecies_ind,             &nSpecies,       1,
                               buffer->particleSpecies_ind,             &particleSpecies,1,
                               buffer->coordinates_ind,                 &coords,         1,
                               buffer->numberContributingParticles_ind, &numContrib,     (HalfOrFull==1),
-                              buffer->boxSideLengths_ind,              &boxSideLengths, (NBC==1),
+                              buffer->boxSideLengths_ind,              &boxSideLengths, (NBC==2),
                               buffer->energy_ind,                      &energy,         comp_energy,
                               buffer->forces_ind,                      &force,          comp_force,
                               buffer->particleEnergy_ind,              &particleEnergy, comp_particleEnergy);
@@ -753,12 +778,12 @@ static int compute(void* km)
         } else {
           interaction_index = 1;
         }
+        cutoff  = &(buffer->cutoff)[interaction_index];
         cutsq  = &(buffer->cutsq)[interaction_index];
         A      = &(buffer->A)[interaction_index];
         B      = &(buffer->B)[interaction_index];
         p      = &(buffer->p)[interaction_index];
         q      = &(buffer->q)[interaction_index];
-        a      = &(buffer->a)[interaction_index];
         lambda = &(buffer->lambda)[interaction_index];
         gamma  = &(buffer->gamma)[interaction_index];
         sigma  = &(buffer->sigma)[interaction_index];
@@ -767,11 +792,11 @@ static int compute(void* km)
 
         if(*nSpecies == 2) {
           if (iSpecies == SPEC1 && jSpecies ==SPEC2)
-            cutsq23 = &(buffer->cutsq23)[0];
+            cutsq_jk = &(buffer->cutsq_jk)[0];
           else if (iSpecies == SPEC2 && jSpecies==SPEC1)
-            cutsq23 = &(buffer->cutsq23)[1];
+            cutsq_jk = &(buffer->cutsq_jk)[1];
           else 
-            cutsq23 = NULL;
+            cutsq_jk = NULL;
         }
 
          /* compute relative position vector and squared distance */
@@ -800,13 +825,18 @@ static int compute(void* km)
             Rsqij += Rij[kdim]*Rij[kdim];
          }
 
+ /*DEBUG*/
+ /*  printf("Rij=%f,%f,%f, Rsq=%f\n", Rij[0],Rij[1],Rij[2],Rsqij);
+*/
+
+
          /* compute energy and force */
          if (Rsqij > *cutsq) continue; /* particles are not interacting  */
          R1 = sqrt(Rsqij);
          if (comp_process_d2Edr2)
          {
              /* compute pair potential and its derivatives */
-             calc_phi_d2phi_two(A, B, p, q, a, sigma, epsilon,
+             calc_phi_d2phi_two(A, B, p, q, cutoff, sigma, epsilon,
                                 R1, &phi_two, &dphi_two, &d2phi_two);
 
              /* compute dEidr */
@@ -826,7 +856,7 @@ static int compute(void* km)
          else if (comp_force || comp_process_dEdr)
          {
              /* compute pair potential and its derivative */
-             calc_phi_dphi_two(A, B, p, q, a, sigma, epsilon,
+             calc_phi_dphi_two(A, B, p, q, cutoff, sigma, epsilon,
                                R1, &phi_two, &dphi_two);
 
              /* compute dEidr */
@@ -845,7 +875,7 @@ static int compute(void* km)
          else
          {
             /* compute just pair potential */
-             calc_phi_two(A, B, p, q, a, sigma, epsilon,
+             calc_phi_two(A, B, p, q, cutoff, sigma, epsilon,
                           R1, &phi_two);
          }
 
@@ -952,10 +982,14 @@ static int compute(void* km)
               Rsqjk += Rjk[kdim]*Rjk[kdim];
            }
 
+ /*DEBUG*/
+/*   printf("Rik=%f,%f,%f, Rsq=%f\n", Rik[0],Rik[1],Rik[2],Rsqik);
+*/
+
            /* compute energy and force */
 
            if (Rsqik > *cutsq) continue; /* particles are interacting ? */
-           if (*nSpecies == 2 && Rsqjk > *cutsq23) continue; /* j and k particles are interacting? */
+           if (*nSpecies == 2 && Rsqjk > *cutsq_jk) continue; /* j and k particles are interacting? */
             
             R2 = sqrt(Rsqik);
             R3 = sqrt(Rsqjk);
@@ -963,7 +997,7 @@ static int compute(void* km)
             if (comp_process_d2Edr2)
             {
                /* compute three-body potential and its derivatives */
-               calc_phi_d2phi_three(a, lambda, gamma, sigma, epsilon, costheta,
+               calc_phi_d2phi_three(cutoff, lambda, gamma, sigma, epsilon, costheta,
                                     R1, R2, R3, &phi_three, dphi_three, d2phi_three);
 
                /* compute dEidr */
@@ -992,7 +1026,7 @@ static int compute(void* km)
             else if (comp_force || comp_process_dEdr)
             {
                /* compute three-body potential and its derivative */
-               calc_phi_dphi_three(a, lambda, gamma, sigma, epsilon, costheta,
+               calc_phi_dphi_three(cutoff, lambda, gamma, sigma, epsilon, costheta,
                                    R1, R2, R3, &phi_three, dphi_three);
 
                /* compute dEidr */
@@ -1015,7 +1049,7 @@ static int compute(void* km)
             else
             {
                /* compute just three-body potential */
-               calc_phi_three(a, lambda, gamma, sigma, epsilon, costheta,
+               calc_phi_three(cutoff, lambda, gamma, sigma, epsilon, costheta,
                              R1, R2, R3, &phi_three);
             }
 
@@ -1180,7 +1214,7 @@ static int compute(void* km)
             {
                for (kdim = 0; kdim < DIM; ++kdim)
                {
-                  force[i*DIM + kdim] += dEidr_three[0]*Rij[kdim]/R1 + dEidr_three[1]*Rik[kdim]/R2; /* accumulate force on atom i */
+                  force[i*DIM + kdim] += dEidr_three[0]*Rij[kdim]/R1 + dEidr_three[1]*Rik[kdim]/R2;
                   force[j*DIM + kdim] -= dEidr_three[0]*Rij[kdim]/R1 - dEidr_three[2]*Rjk[kdim]/R3;
                   force[k*DIM + kdim] -= dEidr_three[2]*Rjk[kdim]/R3 + dEidr_three[1]*Rik[kdim]/R2;
                }
@@ -1237,14 +1271,12 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    double* model_B;
    double* model_p;
    double* model_q;
-   double* model_a;
    double* model_lambda;
    double* model_gamma;
    double* model_sigma;
    double* model_epsilon;
    double* model_costheta;
-   double* model_cutsq23;
-   double* model_aTsigma;
+   double* model_cutsq_jk;
 
    int ier;
    struct model_buffer* buffer;
@@ -1297,7 +1329,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    fsetpos(fid, &filepos);
    
    ier = fscanf(fid, "%d\n", &num_species);
-   if (ier =! 1)
+   if (ier != 1)
    {
       ier = KIM_STATUS_FAIL;
       KIM_API_report_error(__LINE__, __FILE__, "error reading first line of parameter file", ier);
@@ -1319,15 +1351,12 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    model_B = (double*) malloc(num_interactions*sizeof(double));  
    model_p = (double*) malloc(num_interactions*sizeof(double));  
    model_q = (double*) malloc(num_interactions*sizeof(double));  
-   model_a = (double*) malloc(num_interactions*sizeof(double));  
    model_lambda = (double*) malloc(num_interactions*sizeof(double));  
    model_gamma = (double*) malloc(num_interactions*sizeof(double));  
    model_sigma = (double*) malloc(num_interactions*sizeof(double));  
    model_epsilon = (double*) malloc(num_interactions*sizeof(double));  
    model_costheta = (double*) malloc(num_interactions*sizeof(double));  
-   
-   model_cutsq23 = (double*) malloc(num_species*sizeof(double));  
-   model_aTsigma = (double*) malloc(num_interactions*sizeof(double));  
+   model_cutsq_jk = (double*) malloc(num_species*sizeof(double));  
 
    if( model_cutoff==NULL
      || model_cutsq==NULL
@@ -1335,7 +1364,6 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
      || model_B==NULL
      || model_p==NULL
      || model_q==NULL
-     || model_a==NULL
      || model_lambda==NULL
      || model_gamma==NULL
      || model_sigma==NULL
@@ -1363,12 +1391,12 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
                   &model_B[i],
                   &model_p[i],
                   &model_q[i],
-                  &model_a[i],
                   &model_lambda[i],
                   &model_gamma[i],
                   &model_sigma[i],
                   &model_epsilon[i],
-                  &model_costheta[i]);
+                  &model_costheta[i],
+                  &model_cutoff[i]);
      /* check that we read the right number of parameters */
      if (10 != ier)
      {
@@ -1390,7 +1418,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
      fsetpos(fid, &filepos);
      
      fscanf(fid, "%lf", &tmp); 
-     model_cutsq23[0] = tmp*tmp;
+     model_cutsq_jk[0] = tmp*tmp;
 
      /* get rid of comments */
      fgetpos(fid, &filepos);
@@ -1402,7 +1430,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
      fsetpos(fid, &filepos);
 
      fscanf(fid, "%lf", &tmp); 
-     model_cutsq23[1] = tmp*tmp;
+     model_cutsq_jk[1] = tmp*tmp;
    }
 
    /* close param file */
@@ -1439,23 +1467,20 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
   
    tmp = 0.0;
    for (i=0; i< num_interactions; ++i) {
-     model_cutoff[i] = model_a[i]* model_sigma[i];
      model_cutsq[i] = model_cutoff[i]*model_cutoff[i];
-     model_aTsigma[i] = model_a[i]* model_sigma[i];
      if ( model_cutoff[i] > tmp)
        tmp = model_cutoff[i];
    }
    *cutoff = tmp;
    
    /* store parameters in KIM object */
-   KIM_API_setm_data(pkim, &ier, 12*4,
+   KIM_API_setm_data(pkim, &ier, 11*4,
                              "PARAM_FREE_cutoff",   num_interactions,  model_cutoff,       1,
                              "PARAM_FIXED_cutsq",   num_interactions,  model_cutsq,        1,
                              "PARAM_FREE_A",        num_interactions,  model_A,            1,
                              "PARAM_FREE_B",        num_interactions,  model_B,            1,
                              "PARAM_FREE_p",        num_interactions,  model_p,            1,
                              "PARAM_FREE_q",        num_interactions,  model_q,            1,
-                             "PARAM_FREE_a",        num_interactions,  model_a,            1,
                              "PARAM_FREE_lambda",   num_interactions,  model_lambda,       1,
                              "PARAM_FREE_gamma",    num_interactions,  model_gamma,        1,
                              "PARAM_FREE_sigma",    num_interactions,  model_sigma,        1,
@@ -1572,14 +1597,12 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    buffer->B          = model_B;
    buffer->p          = model_p;
    buffer->q          = model_q;
-   buffer->a          = model_a;
    buffer->lambda     = model_lambda;
    buffer->gamma      = model_gamma;
    buffer->sigma      = model_sigma;
    buffer->epsilon    = model_epsilon;
    buffer->costheta   = model_costheta;
-   buffer->cutsq23    = model_cutsq23;
-   buffer->aTsigma    = model_aTsigma;
+   buffer->cutsq_jk    = model_cutsq_jk;
 
    /* store in model buffer */
    KIM_API_set_model_buffer(pkim, (void*) buffer, &ier);
@@ -1603,9 +1626,7 @@ static int reinit(void *km)
    struct model_buffer* buffer;
    int* nSpecies;
    int num_interactions;
-   double* sigma;
-   double* a;
-   double* aTsigma;  /* a times sigma */
+   double tmp;
    int i;
 
    /* get buffer from KIM object */
@@ -1616,32 +1637,26 @@ static int reinit(void *km)
       return ier;
    }
 
-   /* set new values in KIM object     */
-   /*                                  */
-   /* store model cutoff in KIM object */
-/*   cutoff = KIM_API_get_data(pkim, "cutoff", &ier);
+   /* update cutoff in KIM API and also cutsq */
+   cutoff = KIM_API_get_data(pkim, "cutoff", &ier);
    if (KIM_STATUS_OK > ier)
    {
       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_get_data", ier);
       return ier;
    }
-   *cutoff = *buffer->cutoff;
-*/
-   /* set value of parameter cutsq */
-/*   *buffer->cutsq = (*cutoff)*(*cutoff);
-*/
 
    nSpecies = KIM_API_get_data_by_index(pkim, buffer->numberOfSpecies_ind, &ier);
    num_interactions = (*nSpecies + 1)*(*nSpecies)/2;
 
-   /* update a corresponding to sigma, to ensure that a*sigma is constant */
-   sigma = buffer->sigma; 
-   a = buffer->a; 
-   aTsigma = buffer->aTsigma;
-
-   for (i=0; i<num_interactions; i++) {
-     a[i] = aTsigma[i]/sigma[i]; 
+   tmp = 0.0;
+   for (i=0; i< num_interactions; ++i) {
+     buffer->cutsq[i] = buffer->cutoff[i]*buffer->cutoff[i];
+     if ( buffer->cutoff[i] > tmp)
+       tmp = buffer->cutoff[i];
    }
+   *cutoff = tmp;
+
+
 
    ier = KIM_STATUS_OK;
    return ier;
@@ -1670,15 +1685,12 @@ static int destroy(void *km)
    free(buffer->B);
    free(buffer->p);
    free(buffer->q);
-   free(buffer->a);
    free(buffer->lambda);
    free(buffer->gamma);
    free(buffer->sigma);
    free(buffer->epsilon);
    free(buffer->costheta);
-   free(buffer->cutsq23);
-   free(buffer->aTsigma);
-   /* FILL: repeat above statements as many times as necessary for all FREE and FIXED parameters. */
+   free(buffer->cutsq_jk);
 
    /* destroy the buffer */
    free(buffer);

@@ -25,80 +25,112 @@
 #    Ryan S. Elliott
 #    Ellad B. Tadmor
 #    Valeriu Smirichinski
-#    Amit Singh
-#
+#    Mingjian
 
 #
 # Release: This file is part of the openkim-api-vX.X.X package.
 #
 
 
-This directory (Three_Body_Stillinger_Weber__MD_335816936951_001) contains Stillinger-Weber potential
+This directory (Three_Body_Stillinger_Weber__MD_000000111111_000) contains Stillinger-Weber potential
 Model driver written in C.
 
 
-/*******************************************************************************
+It can support the use of one species or two species.  For one species, it implments exactly the 
+Stillinger-Weber potential as described in Phys. Rev. B, vol. 31, 5262-5271, 1985.  For two species,
+three-body interactions can only happen between certain atom groups, and also additional cutoffs are 
+needed.  Let's consider the three-body interaction between aotms i, j, and k. Three body interactions 
+theta_ijk ,where i is the center atoms, is considered only when species_i = Spec1, species_j = Spec2,
+and species_k = Spec2 or species_i = Spec2, species_j = Spec1, and species_k = Spec1. And addition
+cutoff for r_jk is also needed.  
 
-* For three-body potential any potential energy function for N-particle system can be written in the
-* following form of two-body and three-body terms:
-     F(1, 2, ...., N)   = sum_{i; 1 <= i < j <= N} phi_two(r; r = r_ij)
-                          + sum_{i; 1 <= i \neq j < k <= N} phi_three(r_ij, r_ik, r_jk);
 
-* For Stillinger-Weber, two-body term phi_two is
+One parameter file is needed, and the parameters should be given as:
 
-     phi_two(r) = epsilon * f_2(r_cap; r_cap = r/sigma); where f_2 is
+For one species:
 
-     f_2(r_cap) = A * ( B*r_cap^(-p) - r_cap^-q ) * exp(1/(r_cap - a)); when  r_cap <  a
-                = 0   when r_cap >= a
+Line 1: number of species
 
-* and three-body term phi_three is
+Then the parameters in the listed order:
+  A
+  B
+  p
+  q
+  lambda
+  gamma
+  sigma (in Angstrom)
+  epsilon (in ev)
+  costheta_0
+  cutoff
 
-     phi_three(r_ij, r_ik, r_jk) = epsilon * f_3(r1_cap, r2_cap, r3_cap); where
 
-     r1_cap = r_ij/sigma, r2_cap = r_ik/sigma, r3_cap = r_jk/sigma,      and
+For two species:
 
-     f_3(r1_cap, r2_cap, r3_cap) = lambda * (exp(gamma((1/(r1_cap - a)) + (1/(r2_cap - a))))) * (costheta_jik - costheta_0)^2;  when r1_cap < a && r2_cap < a
-                                 = 0;                                                                                           otherwise
+Line 1: number of species
 
-     costheta_jik = (r_ij^2 + r_ik^2 - r_jk^2) / (2*r_ij*r_ik).
+Then the parameters for interactons in the listed order:
 
-*******************************************************************************/
+species1-species1 (two-body interaction)
+species1-species2-species2 (or species2-species1-species1; they are the same; three-body interaciton)
+species2-species2 (two-body interaction)
 
-For Silicon:
-------------------------------------------------------------
-| A = 7.049556277, B = 0.6022245584, p = 4, q = 0,          |
-| a = 1.80, lambda = 21.0, gamma = 1.2,                     |
-| sigma = 2.0951, epsilon = 2.315 ev (for E_coh = 4.63 ev), |
-| costheta_0 = -1/3                                         |
--------------------------------------------------------------
+For each interactions, the parameters are listed in the following order:
+  A
+  B
+  p
+  q
+  lambda
+  gamma
+  sigma (in Angstrom)
+  epsilon (in ev)
+  costheta_0
+  cutoff
 
-References:
+For two body interacitons, lambda and gamma will not be used.  So it could be any double value in the 
+parameter file. 
 
-1. F. H. Stillinger and T. A. Weber, "Computer simulation of local order in condensed phases of silicon", Phys. Rev. B, vol. 31, 5262-5271, 1985
+As discussed above, three-body interactions only exist for atoms groups of species1-species2-species2 or 
+species2-species1-species1 where species1 and species2 are the center atom, respectively. So only one 
+set of three-body interaction parameters is needed.
 
-2. Ellad B. Tadmor and Ronald E. Miller, Modeling Materials: Continuum, Atomistic and Multiscale Techniques, Cambridge University Press, 2011
+Then two additional cutoffs are listed: 
+cutoff_jk for species1-species2-species2 interaction 
+cutoff_jk for species2-species1-species1 interaction 
 
-It complies with the KIM API interface standard, using two neihgbor handling methods,
-NEIGH_PURE_F and NEIGH_RVEC_F and iterator or locator mode. It publishes its parameters
+
+The cutoff of standard Stillinger-Weber potential is given implicitly by cutoff = `a*sigma', where `a' is 
+a potential parameter.  In this Model Driver, we do not use `a', but give the cutoff explicitly.  By doing 
+this, If you change the `sigma' through `PARAM_Free_sigma' then there is no needed to update the `cutoff'.
+
+
+It complies with the KIM API interface standard, using three neihgbor handling methods,
+MI_OPBC_H, NEIGH_PURE_F and NEIGH_RVEC_F and iterator or locator mode. It publishes its parameters
 and supports optional computation of `energy', 'forces', 'particleEnergy', 'process_dEdr',
 and 'process_dE2dr2'. Its initializaton routine takes a KIM API object pointer and
 a pointer to a string that contains all parameters which define a KIM Model
 based on this KIM Model Driver.
 
 
-To create a KIM Model from this Model Driver, a parameter file is required.
-This file must have the follwing format:
-   Line 1: A
-   Line 2: B
-   Line 3: p
-   Line 4: q
-   Line 5: a
-   Line 6: lambda
-   Line 7: gamma
-   Line 8: sigma in Angstrom
-   Line 9: epsilon in ev
-   Line 10: costheta_0
-Any additional lines will be silently ignored.
+References:
+
+1. F. H. Stillinger and T. A. Weber, "Computer simulation of local order in condensed phases of silicon",
+   Phys. Rev. B, vol. 31, 5262-5271, 1985
+
+2. Ellad B. Tadmor and Ronald E. Miller, Modeling Materials: Continuum, Atomistic and Multiscale Techniques,
+   Cambridge University Press, 2011
+
+3. Jin-Wu Jiang, Harold S. Park and Timon Rabczuk, "Molecular dynamics simulations of single-layer 
+   molybdenum disulphide (MoS2): Stillinger-Weber parametrization, mechanical properties, and thermal
+   conductivity", J. Appl. Phys., 114, 064307, 2013
+
+
+It complies with the KIM API interface standard, using three neihgbor handling methods,
+MI_OPBC_H, NEIGH_PURE_F and NEIGH_RVEC_F and iterator or locator mode. It publishes its parameters
+and supports optional computation of `energy', 'forces', 'particleEnergy', 'process_dEdr',
+and 'process_dE2dr2'. Its initializaton routine takes a KIM API object pointer and
+a pointer to a string that contains all parameters which define a KIM Model
+based on this KIM Model Driver.
+
 
 
 The following files are in this directory:
