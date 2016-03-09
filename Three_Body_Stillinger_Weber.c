@@ -75,6 +75,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 #include "KIM_API_C.h"
 #include "KIM_API_status.h"
 
@@ -148,6 +149,7 @@ struct model_buffer {
    double* sigma;
    double* epsilon;
    double* costheta;
+   double* cutoff_jk;    /* only used if there are two species, the same for cutsq_jk */
    double* cutsq_jk; 
 };
 
@@ -1176,6 +1178,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    double* model_sigma;
    double* model_epsilon;
    double* model_costheta;
+   double* model_cutoff_jk;
    double* model_cutsq_jk;
 
    int ier;
@@ -1222,7 +1225,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    /* get rid of comments */
    fgetpos(fid, &filepos);
    fgets(dummy, 255, fid);
-   while (dummy[0] == '#') {
+   while (dummy[0] == '#' || isspace(dummy[0])) {
      fgetpos(fid, &filepos);
      fgets(dummy, 255, fid);
    }
@@ -1256,6 +1259,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    model_sigma = (double*) malloc(num_interactions*sizeof(double));  
    model_epsilon = (double*) malloc(num_interactions*sizeof(double));  
    model_costheta = (double*) malloc(num_interactions*sizeof(double));  
+   model_cutoff_jk = (double*) malloc(num_species*sizeof(double));  
    model_cutsq_jk = (double*) malloc(num_species*sizeof(double));  
 
    if( model_cutoff==NULL
@@ -1280,7 +1284,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
      /* get rid of comments */
      fgetpos(fid, &filepos);
      fgets(dummy, 255, fid);
-     while (dummy[0] == '#') {
+     while (dummy[0] == '#' || isspace(dummy[0])) {
        fgetpos(fid, &filepos);
        fgets(dummy, 255, fid);
      }
@@ -1306,37 +1310,49 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
      }
    }
 
-   /* read cutoff for 23 interactions */
+   /* read cutoff for rjk */
    if (num_species == 2) {
-     /* get rid of comments */
-     fgetpos(fid, &filepos);
-     fgets(dummy, 255, fid);
-     while (dummy[0] == '#') {
-       fgetpos(fid, &filepos);
-       fgets(dummy, 255, fid);
-     }
-     fsetpos(fid, &filepos);
-     
-     fscanf(fid, "%lf", &tmp); 
-     model_cutsq_jk[0] = tmp*tmp;
 
      /* get rid of comments */
      fgetpos(fid, &filepos);
      fgets(dummy, 255, fid);
-     while (dummy[0] == '#') {
+     while (dummy[0] == '#' || isspace(dummy[0])) {
        fgetpos(fid, &filepos);
        fgets(dummy, 255, fid);
      }
      fsetpos(fid, &filepos);
 
-     fscanf(fid, "%lf", &tmp); 
-     model_cutsq_jk[1] = tmp*tmp;
+     ier = fscanf(fid, "%lf\n", &model_cutoff_jk[0]); 
+     if (1 != ier)
+     {
+       ier = KIM_STATUS_FAIL;
+       KIM_API_report_error(__LINE__, __FILE__, "corrupted parameter file", ier);
+       return ier;
+     }
+     model_cutsq_jk[0] = model_cutoff_jk[0]*model_cutoff_jk[0];
+
+     /* get rid of comments */
+     fgetpos(fid, &filepos);
+     fgets(dummy, 255, fid);
+     while (dummy[0] == '#' || isspace(dummy[0])) {
+       fgetpos(fid, &filepos);
+       fgets(dummy, 255, fid);
+     }
+     fsetpos(fid, &filepos);
+
+     ier = fscanf(fid, "%lf\n", &model_cutoff_jk[1]); 
+     if (1 != ier)
+     {
+       ier = KIM_STATUS_FAIL;
+       KIM_API_report_error(__LINE__, __FILE__, "corrupted parameter file", ier);
+       return ier;
+     }
+     model_cutsq_jk[1] = model_cutoff_jk[1]*model_cutoff_jk[1];
    }
 
    /* close param file */
    fclose(fid);
- 
-   
+
    /* convert units */
    for (i=0; i< num_interactions; ++i) {
      model_sigma[i] *= KIM_API_convert_to_act_unit(pkim, "A", "eV", "e", "K", "fs",
@@ -1386,6 +1402,21 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
                              "PARAM_FREE_sigma",    num_interactions,  model_sigma,        1,
                              "PARAM_FREE_epsilon",  num_interactions,  model_epsilon,      1,
                              "PARAM_FREE_costheta", num_interactions,  model_costheta,    1);
+   if (KIM_STATUS_OK > ier)
+   {
+      KIM_API_report_error(__LINE__, __FILE__, "KIM_API_setm_data", ier);
+      return ier;
+   }
+
+   if (num_species == 2)
+   {
+     KIM_API_set_data(pkim, "PARAM_FREE_cutoff_jk", num_species, model_cutoff_jk);
+     if (KIM_STATUS_OK > ier)
+     {
+       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_setm_data", ier);
+       return ier;
+     }
+   }
 
    /* allocate buffer */
    buffer = (struct model_buffer*) malloc(sizeof(struct model_buffer));
@@ -1486,6 +1517,7 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
    buffer->sigma      = model_sigma;
    buffer->epsilon    = model_epsilon;
    buffer->costheta   = model_costheta;
+   buffer->cutoff_jk    = model_cutoff_jk;
    buffer->cutsq_jk    = model_cutsq_jk;
 
    /* store in model buffer */
@@ -1539,8 +1571,12 @@ static int reinit(void *km)
        tmp = buffer->cutoff[i];
    }
    *cutoff = tmp;
-
-
+  
+   if (nSpecies == 2) {
+     for (i=0; i< nSpecies; ++i) {
+       buffer->cutsq_jk[i] = buffer->cutoff_jk[i]*buffer->cutoff_jk[i];
+     }
+   }
 
    ier = KIM_STATUS_OK;
    return ier;
@@ -1574,6 +1610,7 @@ static int destroy(void *km)
    free(buffer->sigma);
    free(buffer->epsilon);
    free(buffer->costheta);
+   free(buffer->cutoff_jk);
    free(buffer->cutsq_jk);
 
    /* destroy the buffer */
