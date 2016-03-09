@@ -122,7 +122,6 @@ static void calc_phi_d2phi_three(double* cutoff, double* lambda, double* gamma,
 /* Define model_buffer structure */
 struct model_buffer {
    int NBC;
-   int HalfOrFull;
    int IterOrLoca;
    int energy_ind;
    int forces_ind;
@@ -134,11 +133,9 @@ struct model_buffer {
    int numberOfSpecies_ind;
    int particleSpecies_ind;
    int coordinates_ind;
-   int numberContributingParticles_ind;
    int boxSideLengths_ind;
    int get_neigh_ind;
    int cutoff_ind;
-
 
    double* cutoff;
    double* cutsq;
@@ -536,7 +533,6 @@ static int compute(void* km)
    int comp_process_dEdr;
    int comp_process_d2Edr2;
    int NBC;
-   int HalfOrFull;
    int IterOrLoca;
    int model_index_shift;
    int zero = 0;
@@ -565,8 +561,6 @@ static int compute(void* km)
    double* force;
    double* particleEnergy;
    double* boxSideLengths;
-   int* numContrib;
-   int numberContrib;
    int numOfAtomNeigh;
    int iSpecies;
    int jSpecies;
@@ -590,11 +584,7 @@ static int compute(void* km)
 
    /* unpack info from the buffer */
    NBC = buffer->NBC;
-   HalfOrFull = buffer->HalfOrFull;
-   
-   HalfOrFull = 2;
-  
-  IterOrLoca = buffer->IterOrLoca;
+   IterOrLoca = buffer->IterOrLoca;
    model_index_shift = buffer->model_index_shift;
 
    /* check to see if we have been asked to compute the forces, particleEnergy, and dEdr */
@@ -610,12 +600,11 @@ static int compute(void* km)
       return ier;
    }
 
-   KIM_API_getm_data_by_index(pkim, &ier, 9*3,
+   KIM_API_getm_data_by_index(pkim, &ier, 8*3,
                               buffer->numberOfParticles_ind,           &nAtoms,         1,
                               buffer->numberOfSpecies_ind,             &nSpecies,       1,
                               buffer->particleSpecies_ind,             &particleSpecies,1,
                               buffer->coordinates_ind,                 &coords,         1,
-                              buffer->numberContributingParticles_ind, &numContrib,     (HalfOrFull==1),
                               buffer->boxSideLengths_ind,              &boxSideLengths, (NBC==2),
                               buffer->energy_ind,                      &energy,         comp_energy,
                               buffer->forces_ind,                      &force,          comp_force,
@@ -633,22 +622,6 @@ static int compute(void* km)
          KIM_API_report_error(__LINE__, __FILE__, "KIM_API_get_method_by_index", ier);
          return ier;
       }
-   }
-
-   if (HalfOrFull == 1)
-   {
-      if (3 != NBC) /*    non-CLUSTER cases */
-      {
-         numberContrib = *numContrib;
-      }
-      else /*   CLUSTER cases */
-      {
-         numberContrib = *nAtoms;
-      }
-   }
-   else
-   {  /* provide initialization even if not used */
-      numberContrib = *nAtoms;
    }
 
    /* Check to be sure that the atom types are correct */
@@ -831,11 +804,6 @@ static int compute(void* km)
             Rsqij += Rij[kdim]*Rij[kdim];
          }
 
- /*DEBUG*/
- /*  printf("Rij=%f,%f,%f, Rsq=%f\n", Rij[0],Rij[1],Rij[2],Rsqij);
-*/
-
-
          /* compute energy and force */
          if (Rsqij > *cutsq) continue; /* particles are not interacting  */
          R1 = sqrt(Rsqij);
@@ -846,18 +814,8 @@ static int compute(void* km)
                                 R1, &phi_two, &dphi_two, &d2phi_two);
 
              /* compute dEidr */
-             if ((1 == HalfOrFull) && (j < numberContrib))
-             {
-                  /* Half mode -- double contribution */
-                   dEidr_two = dphi_two;
-                   d2Eidr_two = d2phi_two;
-             }
-             else
-             {
-                  /* Full mode -- regular contribution */
-                  dEidr_two  = 0.5*dphi_two;
-                  d2Eidr_two = 0.5*d2phi_two;
-             }
+             dEidr_two  = 0.5*dphi_two;
+             d2Eidr_two = 0.5*d2phi_two;
          }
          else if (comp_force || comp_process_dEdr)
          {
@@ -865,18 +823,7 @@ static int compute(void* km)
              calc_phi_dphi_two(A, B, p, q, cutoff, sigma, epsilon,
                                R1, &phi_two, &dphi_two);
 
-             /* compute dEidr */
-             if ((1 == HalfOrFull) && (j < numberContrib))
-             {
-                  /* Half mode -- double contribution */
-                  dEidr_two = dphi_two;
-             }
-             else
-             {
-
-                  /* Full mode -- regular contribution */
-                  dEidr_two = 0.5*dphi_two;
-             }
+             dEidr_two = 0.5*dphi_two;
          }
          else
          {
@@ -889,21 +836,10 @@ static int compute(void* km)
          if (comp_particleEnergy)
          {
             particleEnergy[i] += 0.5*phi_two;
-            /* if half list add energy for the other atom in the pair */
-            if ((1 == HalfOrFull) && (j < numberContrib)) particleEnergy[j] += 0.5*phi_two;
          }
          if (comp_energy)
          {
-             if ((1 == HalfOrFull) && (j < numberContrib))
-             {
-                 /* Half mode -- add v to total energy */
-                 *energy += phi_two;
-             }
-             else
-             {
-                 /* Full mode -- add half v to total energy */
-                 *energy += 0.5*phi_two;
-             }
+            *energy += 0.5*phi_two;
          }
 
          /* contribution to process_dEdr */
@@ -1006,28 +942,16 @@ static int compute(void* km)
                calc_phi_d2phi_three(cutoff, lambda, gamma, sigma, epsilon, costheta,
                                     R1, R2, R3, &phi_three, dphi_three, d2phi_three);
 
-               /* compute dEidr */
-               if ((1 == HalfOrFull))
-               {
-                  /*  Half mode */
-                  ier = KIM_STATUS_FAIL;
-                  KIM_API_report_error(__LINE__, __FILE__, "The driver does not support half list mode", ier);
-                  return ier;
-                }
-                else
-                {
-                  /* Full mode -- regular contribution */
-                  dEidr_three[0]  = dphi_three[0];
-                  dEidr_three[1]  = dphi_three[1];
-                  dEidr_three[2]  = dphi_three[2];
+               dEidr_three[0]  = dphi_three[0];
+               dEidr_three[1]  = dphi_three[1];
+               dEidr_three[2]  = dphi_three[2];
 
-                  d2Eidr_three[0] = d2phi_three[0];
-                  d2Eidr_three[1] = d2phi_three[1];
-                  d2Eidr_three[2] = d2phi_three[2];
-                  d2Eidr_three[3] = d2phi_three[3];
-                  d2Eidr_three[4] = d2phi_three[4];
-                  d2Eidr_three[5] = d2phi_three[5];
-                }
+               d2Eidr_three[0] = d2phi_three[0];
+               d2Eidr_three[1] = d2phi_three[1];
+               d2Eidr_three[2] = d2phi_three[2];
+               d2Eidr_three[3] = d2phi_three[3];
+               d2Eidr_three[4] = d2phi_three[4];
+               d2Eidr_three[5] = d2phi_three[5];
             }
             else if (comp_force || comp_process_dEdr)
             {
@@ -1035,22 +959,9 @@ static int compute(void* km)
                calc_phi_dphi_three(cutoff, lambda, gamma, sigma, epsilon, costheta,
                                    R1, R2, R3, &phi_three, dphi_three);
 
-               /* compute dEidr */
-               if ((1 == HalfOrFull))
-               {
-                  /* Half mode */
-                  ier = KIM_STATUS_FAIL;
-                  KIM_API_report_error(__LINE__, __FILE__, "The driver does not support half list mode", ier);
-                  return ier;
-               }
-               else
-               {
-                  /* Full mode -- regular contribution */
-                  dEidr_three[0]  =  dphi_three[0];
-                  dEidr_three[1]  =  dphi_three[1];
-                  dEidr_three[2]  =  dphi_three[2];
-               }
-
+               dEidr_three[0]  =  dphi_three[0];
+               dEidr_three[1]  =  dphi_three[1];
+               dEidr_three[2]  =  dphi_three[2];
             }
             else
             {
@@ -1063,27 +974,10 @@ static int compute(void* km)
             if (comp_particleEnergy)
             {
                particleEnergy[i] += phi_three;
-               /* if half list add energy for other atoms in the triplet */
-               if ((1 == HalfOrFull)) {
-                  ier = KIM_STATUS_FAIL;
-                  KIM_API_report_error(__LINE__, __FILE__, "The driver does not support half list mode", ier);
-                  return ier;
-               }
             }
             if (comp_energy)
             {
-               if ((1 == HalfOrFull))
-               {
-                  /* Half mode */
-                  ier = KIM_STATUS_FAIL;
-                  KIM_API_report_error(__LINE__, __FILE__, "The driver does not support half list mode", ier);
-                  return ier;
-               }
-               else
-               {
-                  /* Full mode -- add half v to total energy */
-                  *energy +=  phi_three;
-               }
+              *energy +=  phi_three;
             }
 
             /* contribution to process_dEdr */
@@ -1510,15 +1404,15 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
       KIM_API_report_error(__LINE__, __FILE__, "KIM_API_get_NBC_method", ier);
       return ier;
    }
-   if ((!strcmp("NEIGH_RVEC_H",NBCstr)) || (!strcmp("NEIGH_RVEC_F",NBCstr)))
+   if (!strcmp("NEIGH_RVEC_F",NBCstr))
    {
       buffer->NBC = 0;
    }
-   else if ((!strcmp("NEIGH_PURE_H",NBCstr)) || (!strcmp("NEIGH_PURE_F",NBCstr)))
+   else if (!strcmp("NEIGH_PURE_F",NBCstr))
    {
       buffer->NBC = 1;
    }
-   else if ((!strcmp("MI_OPBC_H",NBCstr)) || (!strcmp("MI_OPBC_F",NBCstr)))
+   else if (!strcmp("MI_OPBC_F",NBCstr))
    {
       buffer->NBC = 2;
    }
@@ -1531,21 +1425,6 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
       ier = KIM_STATUS_FAIL;
       KIM_API_report_error(__LINE__, __FILE__, "Unknown NBC method", ier);
       return ier;
-   }
-
-   /* Determine if Half or Full neighbor lists are being used */
-   /*****************************
-    * HalfOrFull = 1 -- Half
-    *            = 2 -- Full
-    *****************************/
-
-   if (KIM_API_is_half_neighbors(pkim, &ier))
-   {
-      buffer->HalfOrFull = 1;
-   }
-   else
-   {
-     buffer->HalfOrFull = 2;
    }
 
 
@@ -1575,12 +1454,11 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
 
    buffer->model_index_shift = KIM_API_get_model_index_shift(pkim);
 
-   KIM_API_getm_index(pkim, &ier, 13*3,
+   KIM_API_getm_index(pkim, &ier, 12*3,
                       "cutoff",                      &(buffer->cutoff_ind),                      1,
                       "numberOfParticles",           &(buffer->numberOfParticles_ind),           1,
                       "numberOfSpecies",             &(buffer->numberOfSpecies_ind),             1,
                       "particleSpecies",             &(buffer->particleSpecies_ind),             1,
-                      "numberContributingParticles", &(buffer->numberContributingParticles_ind), 1,
                       "coordinates",                 &(buffer->coordinates_ind),                 1,
                       "get_neigh",                   &(buffer->get_neigh_ind),                   1,
                       "boxSideLengths",              &(buffer->boxSideLengths_ind),              1,
