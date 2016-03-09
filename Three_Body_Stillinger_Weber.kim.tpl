@@ -61,6 +61,7 @@ NEIGH_RVEC_F                flag
 
 NEIGH_PURE_F                flag
 
+CLUSTER                     flag
 
 #######################################################################################################
 MODEL_INPUT:
@@ -110,7 +111,11 @@ process_d2Edr2              method       none                []                 
 MODEL_PARAMETERS:
 # Name                      Type         Unit                Shape              Requirements
 
-PARAM_FREE_cutoff           double       length               [:]                optional
+PARAM_FREE_cutoff           double       length               [:]
+
+PARAM_FIXED_cutsq           double       length               [:]
+
+PARAM_FREE_cutoff_jk        double       length               [:]
 
 PARAM_FREE_A                double       none                 [:]
 
@@ -119,8 +124,6 @@ PARAM_FREE_B                double       none                 [:]
 PARAM_FREE_p                double       none                 [:]
 
 PARAM_FREE_q                double       none                 [:]
-
-PARAM_FREE_a                double       none                 [:]
 
 PARAM_FREE_lambda           double       none                 [:]
 
@@ -132,4 +135,3 @@ PARAM_FREE_epsilon          double       energy               [:]
 
 PARAM_FREE_costheta         double       none                 [:]
 
-PARAM_FIXED_cutsq           double       length               [:]

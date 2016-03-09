@@ -591,7 +591,10 @@ static int compute(void* km)
    /* unpack info from the buffer */
    NBC = buffer->NBC;
    HalfOrFull = buffer->HalfOrFull;
-   IterOrLoca = buffer->IterOrLoca;
+   
+   HalfOrFull = 2;
+  
+  IterOrLoca = buffer->IterOrLoca;
    model_index_shift = buffer->model_index_shift;
 
    /* check to see if we have been asked to compute the forces, particleEnergy, and dEdr */
@@ -740,10 +743,13 @@ static int compute(void* km)
 
          if (3 == NBC) /* CLUSTER NBC method */
          {
-            numOfAtomNeigh = *nAtoms - (i + 1);
-            for (kdim = 0; kdim < numOfAtomNeigh; ++kdim)
+            numOfAtomNeigh = *nAtoms - 1;
+            for (kdim = 0; kdim < *nAtoms; ++kdim)
             {
-               neighListOfCurrentAtom[kdim] = i + kdim + 1 - model_index_shift;
+               if (kdim < i)
+                 neighListOfCurrentAtom[kdim] = kdim - model_index_shift;
+               if (kdim > i)
+                 neighListOfCurrentAtom[kdim - 1] = kdim - model_index_shift;
             }
             ier = KIM_STATUS_OK;
          }

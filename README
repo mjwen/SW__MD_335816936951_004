@@ -25,7 +25,7 @@
 #    Ryan S. Elliott
 #    Ellad B. Tadmor
 #    Valeriu Smirichinski
-#    Mingjian
+#    Mingjian Wen
 
 #
 # Release: This file is part of the openkim-api-vX.X.X package.
@@ -49,7 +49,7 @@ One parameter file is needed, and the parameters should be given as:
 
 For one species:
 
-Line 1: number of species
+Line 1: number of species (i.e. 1)
 
 Then the parameters in the listed order:
   A
@@ -66,7 +66,7 @@ Then the parameters in the listed order:
 
 For two species:
 
-Line 1: number of species
+Line 1: number of species (i.e. 2)
 
 Then the parameters for interactons in the listed order:
 
@@ -86,7 +86,7 @@ For each interactions, the parameters are listed in the following order:
   costheta_0
   cutoff
 
-For two body interacitons, lambda and gamma will not be used.  So it could be any double value in the 
+For two body interacitons, lambda and gamma will not be used.  So it could be any value in the 
 parameter file. 
 
 As discussed above, three-body interactions only exist for atoms groups of species1-species2-species2 or 
@@ -104,7 +104,7 @@ this, If you change the `sigma' through `PARAM_Free_sigma' then there is no need
 
 
 It complies with the KIM API interface standard, using three neihgbor handling methods,
-MI_OPBC_H, NEIGH_PURE_F and NEIGH_RVEC_F and iterator or locator mode. It publishes its parameters
+MI_OPBC_F, NEIGH_PURE_F and NEIGH_RVEC_F and iterator or locator mode. It publishes its parameters
 and supports optional computation of `energy', 'forces', 'particleEnergy', 'process_dEdr',
 and 'process_dE2dr2'. Its initializaton routine takes a KIM API object pointer and
 a pointer to a string that contains all parameters which define a KIM Model
@@ -122,14 +122,6 @@ References:
 3. Jin-Wu Jiang, Harold S. Park and Timon Rabczuk, "Molecular dynamics simulations of single-layer 
    molybdenum disulphide (MoS2): Stillinger-Weber parametrization, mechanical properties, and thermal
    conductivity", J. Appl. Phys., 114, 064307, 2013
-
-
-It complies with the KIM API interface standard, using three neihgbor handling methods,
-MI_OPBC_H, NEIGH_PURE_F and NEIGH_RVEC_F and iterator or locator mode. It publishes its parameters
-and supports optional computation of `energy', 'forces', 'particleEnergy', 'process_dEdr',
-and 'process_dE2dr2'. Its initializaton routine takes a KIM API object pointer and
-a pointer to a string that contains all parameters which define a KIM Model
-based on this KIM Model Driver.
 
 
 
