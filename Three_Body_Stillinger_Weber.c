@@ -796,7 +796,7 @@ static int compute(void* km)
             /* apply periodic boundary conditions if required */
             if (2 == NBC)
             {
-               if (abs(Rij[kdim]) > 0.5*boxSideLengths[kdim])
+               if (fabs(Rij[kdim]) > 0.5*boxSideLengths[kdim])
                {
                   Rij[kdim] -= (Rij[kdim]/fabs(Rij[kdim]))*boxSideLengths[kdim];
                }
@@ -911,13 +911,10 @@ static int compute(void* km)
               /* apply periodic boundary conditions if required */
               if (2 == NBC)
               {
-                 if (abs(Rik[kdim]) > 0.5*boxSideLengths[kdim])
+                 if (fabs(Rik[kdim]) > 0.5*boxSideLengths[kdim])
                  {
                     Rik[kdim] -= (Rik[kdim]/fabs(Rik[kdim]))*boxSideLengths[kdim];
-                 }
-                 if (abs(Rjk[kdim]) > 0.5*boxSideLengths[kdim])
-                 {
-                    Rjk[kdim] -= (Rjk[kdim]/fabs(Rjk[kdim]))*boxSideLengths[kdim];
+                    Rjk[kdim] = Rik[kdim] - Rij[kdim];
                  }
               }
 
@@ -925,10 +922,6 @@ static int compute(void* km)
               Rsqik += Rik[kdim]*Rik[kdim];
               Rsqjk += Rjk[kdim]*Rjk[kdim];
            }
-
- /*DEBUG*/
-/*   printf("Rik=%f,%f,%f, Rsq=%f\n", Rik[0],Rik[1],Rik[2],Rsqik);
-*/
 
            /* compute energy and force */
 

@@ -33,10 +33,10 @@
 
 
 This directory (Three_Body_Stillinger_Weber__MD_000000111111_000) contains Stillinger-Weber potential
-Model driver written in C.
+Model Driver written in C.
 
 
-It can support the use of one species or two species.  For one species, it implments exactly the 
+It can support one species or two species.  For one species, the implementation is exactly the 
 Stillinger-Weber potential as described in Phys. Rev. B, vol. 31, 5262-5271, 1985.  For two species,
 three-body interactions can only happen between certain atom groups, and also additional cutoffs are 
 needed.  Let's consider the three-body interaction between aotms i, j, and k. Three body interactions 
@@ -49,7 +49,7 @@ One parameter file is needed, and the parameters should be given as:
 
 For one species:
 
-Line 1: number of species (i.e. 1)
+  first parameter: number of species (i.e. 1)
 
 Then the parameters in the listed order:
   A
@@ -66,7 +66,7 @@ Then the parameters in the listed order:
 
 For two species:
 
-Line 1: number of species (i.e. 2)
+  first parameter: number of species (i.e. 2)
 
 Then the parameters for interactons in the listed order:
 
@@ -86,12 +86,11 @@ For each interactions, the parameters are listed in the following order:
   costheta_0
   cutoff
 
-For two body interacitons, lambda and gamma will not be used.  So it could be any value in the 
-parameter file. 
+For two body interacitons, lambda, gamma and costheta_0 will not be used.  So they could be any value.
 
-As discussed above, three-body interactions only exist for atoms groups of species1-species2-species2 or 
-species2-species1-species1 where species1 and species2 are the center atom, respectively. So only one 
-set of three-body interaction parameters is needed.
+As discussed above, three-body interactions only exist for atoms groups of species1-species2-species2, 
+where species1 is the center atom and species2-species1-species1 where species2 is the center atom.
+So only one set of three-body interaction parameters is needed (without considering the additional cutoffs).
 
 Then two additional cutoffs are listed: 
 cutoff_jk for species1-species2-species2 interaction 
@@ -100,15 +99,14 @@ cutoff_jk for species2-species1-species1 interaction
 
 The cutoff of standard Stillinger-Weber potential is given implicitly by cutoff = `a*sigma', where `a' is 
 a potential parameter.  In this Model Driver, we do not use `a', but give the cutoff explicitly.  By doing 
-this, If you change the `sigma' through `PARAM_Free_sigma' then there is no needed to update the `cutoff'.
+this, if `sigma' is updated through `PARAM_FREE_sigma' then there is no needed to update `cutoff'.
 
 
-It complies with the KIM API interface standard, using three neihgbor handling methods,
-MI_OPBC_F, NEIGH_PURE_F and NEIGH_RVEC_F and iterator or locator mode. It publishes its parameters
+The Model Driver complies with the KIM API standard, using four neihgbor handling methods: MI_OPBC_F,
+NEIGH_PURE_F, NEIGH_RVEC_F, and CLUSTER and iterator or locator mode. It publishes its parameters
 and supports optional computation of `energy', 'forces', 'particleEnergy', 'process_dEdr',
-and 'process_dE2dr2'. Its initializaton routine takes a KIM API object pointer and
-a pointer to a string that contains all parameters which define a KIM Model
-based on this KIM Model Driver.
+and 'process_dE2dr2'. Its initializaton routine takes a KIM API object pointer and a pointer to a string 
+that contains all parameters which define a KIM Model based on this KIM Model Driver.
 
 
 References:
