@@ -550,7 +550,6 @@ static int compute(void* km)
    double* B;
    double* p;
    double* q;
-   double* a;
    double* lambda;
    double* gamma;
    double* sigma;
@@ -1565,8 +1564,8 @@ static int reinit(void *km)
    }
    *cutoff = tmp;
   
-   if (nSpecies == 2) {
-     for (i=0; i< nSpecies; ++i) {
+   if (*nSpecies == 2) {
+     for (i=0; i< *nSpecies; ++i) {
        buffer->cutsq_jk[i] = buffer->cutoff_jk[i]*buffer->cutoff_jk[i];
      }
    }
