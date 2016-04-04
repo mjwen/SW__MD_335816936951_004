@@ -125,13 +125,11 @@ PARAM_FREE_p                double       none                 [:]
 
 PARAM_FREE_q                double       none                 [:]
 
+PARAM_FREE_sigma            double       length               [:]
+
 PARAM_FREE_lambda           double       none                 [:]
 
 PARAM_FREE_gamma            double       none                 [:]
-
-PARAM_FREE_sigma            double       length               [:]
-
-PARAM_FREE_epsilon          double       energy               [:]
 
 PARAM_FREE_costheta         double       none                 [:]
 
