@@ -43,6 +43,14 @@ PARTICLE_SPECIES:
 
 SPECIES_001_NAME_STR        spec                    1
 SPECIES_002_NAME_STR        spec                    2
+SPECIES_003_NAME_STR        spec                    3
+SPECIES_004_NAME_STR        spec                    4
+SPECIES_005_NAME_STR        spec                    5
+SPECIES_006_NAME_STR        spec                    6
+SPECIES_007_NAME_STR        spec                    7
+SPECIES_008_NAME_STR        spec                    8
+SPECIES_009_NAME_STR        spec                    9
+SPECIES_010_NAME_STR        spec                    10
 
 
 #######################################################################################################

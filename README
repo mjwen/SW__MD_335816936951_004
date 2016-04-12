@@ -35,71 +35,41 @@
 This directory (Three_Body_Stillinger_Weber__MD_000000111111_000) contains Stillinger-Weber potential
 Model Driver written in C.
 
-
-It can support one species or two species.  For one species, the implementation is exactly the 
-Stillinger-Weber potential as described in Phys. Rev. B, vol. 31, 5262-5271, 1985.  For two species,
-three-body interactions can only happen between certain atom groups, and also additional cutoffs are 
-needed.  Let's consider the three-body interaction between aotms i, j, and k. Three body interactions 
-theta_ijk ,where i is the center atoms, is considered only when species_i = Spec1, species_j = Spec2,
-and species_k = Spec2 or species_i = Spec2, species_j = Spec1, and species_k = Spec1. And addition
-cutoff for r_jk is also needed.  
-
-
-One parameter file is needed, and the parameters should be given as:
-
-For one species:
-
-  first parameter: number of species (i.e. 1)
-
-Then the parameters in the listed order:
-  A
-  B
-  p
-  q
-  lambda
-  gamma
-  sigma (in Angstrom)
-  epsilon (in ev)
-  costheta_0
-  cutoff
-
-
-For two species:
-
-  first parameter: number of species (i.e. 2)
-
-Then the parameters for interactons in the listed order:
-
-species1-species1 (two-body interaction)
-species1-species2-species2 (or species2-species1-species1; they are the same; three-body interaciton)
-species2-species2 (two-body interaction)
-
-For each interactions, the parameters are listed in the following order:
-  A
-  B
-  p
-  q
-  lambda
-  gamma
-  sigma (in Angstrom)
-  epsilon (in ev)
-  costheta_0
-  cutoff
-
-For two body interacitons, lambda, gamma and costheta_0 will not be used.  So they could be any value.
-
-As discussed above, three-body interactions only exist for atoms groups of species1-species2-species2, 
-where species1 is the center atom and species2-species1-species1 where species2 is the center atom.
-So only one set of three-body interaction parameters is needed (without considering the additional cutoffs).
-
-Then two additional cutoffs are listed: 
-cutoff_jk for species1-species2-species2 interaction 
-cutoff_jk for species2-species1-species1 interaction 
-
-
+1. This is a direct extention of the standard Stillinger-Weber potential to supports multiple species.
+   A subset of the supported species can be used. For example, if there are 3 species A, B and C in the
+   parameter file, the use of single species A (or B or C) or two species A and B (or A and C, or B and C)
+   are valid.
+   
+2. The functional form has been rewritten so as to separate the parameters. Compared to the standard 
+   Stillinger-Weber potential, the following redefinition has been done:
+   A := A*epsilon
+   lambda := lambda*epsion
+   gamma  := gamma*sigma
+   rcut   := a*sigma
+  
 The cutoff of standard Stillinger-Weber potential is given implicitly by cutoff = `a*sigma', where `a' is 
 a potential parameter.  In this Model Driver, we do not use `a', but give the cutoff explicitly.  By doing 
 this, if `sigma' is updated through `PARAM_FREE_sigma' then there is no needed to update `cutoff'.
+
+
+
+3. One parameter file is needed, and the parameters should be given as:
+     first line: number of species
+
+   Then each line lists the following 9 parameters for interaction between two species:
+     A(in ev) B p q lambda(in eV) gamma(in Angstorm) sigma(in Angstrom) costheta_0 cutoff
+
+   Note one should list all the interactions for one species and then proceed to list all the
+   interaction for the next species.  For example, if there are 3 species, then the parameters should be  
+   in the following order,
+     (1,1)
+     (1,2)   # (2,1) is the same as (1,2), so only list it once here
+     (1,3)
+     (2,2)
+     (2,3)
+     (3,3)
+     where, (i,j) means the parameters for species i and species j.  There should be N*(N+1)/2 such lines for 
+     N species. 
 
 
 The Model Driver complies with the KIM API standard, using four neihgbor handling methods: MI_OPBC_F,
@@ -117,10 +87,8 @@ References:
 2. Ellad B. Tadmor and Ronald E. Miller, Modeling Materials: Continuum, Atomistic and Multiscale Techniques,
    Cambridge University Press, 2011
 
-3. Jin-Wu Jiang, Harold S. Park and Timon Rabczuk, "Molecular dynamics simulations of single-layer 
-   molybdenum disulphide (MoS2): Stillinger-Weber parametrization, mechanical properties, and thermal
-   conductivity", J. Appl. Phys., 114, 064307, 2013
-
+3. X. W. Zhou, D. K. Ward, and J. E. Martin, et al, "Stillinger-Weber potential for the II-VI elements 
+   Zn-Cd-Hg-S-Se-Te" Phys. Rev. B, 88, 085309, 2013.
 
 
 The following files are in this directory:
