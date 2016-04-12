@@ -123,8 +123,6 @@ PARAM_FREE_cutoff           double       length               [:]
 
 PARAM_FIXED_cutsq           double       length               [:]
 
-PARAM_FREE_cutoff_jk        double       length               [:]
-
 PARAM_FREE_A                double       none                 [:]
 
 PARAM_FREE_B                double       none                 [:]

@@ -49,24 +49,23 @@
 #include "KIM_API_C.h"
 #include "KIM_API_status.h"
 
-#define THIRD 1.0/3.0
+#define DIM 3       /* dimensionality of space */
+
 /******************************************************************************
 * Below are the definitions and values of all Model parameters
 *******************************************************************************/
-#define DIM 3       /* dimensionality of space */
 
 /* Define prototypes for Model Driver init */
 /* must be all lowercase to be compatible with the KIM API (to support Fortran Tests) */
-/**/
 int model_driver_init(void* km, char* paramfile_names, int* nmstrlen, int* numparamfiles);
 
 /* Define prototypes for Model (Driver) reinit, compute, and destroy */
 /* defined as static to avoid namespace clashes with other Models    */
-/**/
 static int reinit(void* km);
 static int destroy(void* km);
 static int compute(void* km);
-  /* local function prototypes */
+
+/* local function prototypes */
 static int get_param_index(int i, int j, int num_species);
 
 static void calc_phi_two(double A, double B, double p, double q, double cutoff,
@@ -125,8 +124,6 @@ struct model_buffer {
    double* gamma;
    double* sigma;
    double* costheta;
-   double* cutoff_jk;    /* only used if there are two species, the same for cutsq_jk */
-   double* cutsq_jk; 
 };
 
 /* Calculate pair potential phi_two(r) */
@@ -198,7 +195,7 @@ static void calc_phi_d2phi_two(double A, double B, double p, double q,
       *phi = A * (B*pow(r_cap,-p) - pow(r_cap,-q)) * exp(sigma/(r - cutoff));
 
       *dphi = (q*pow(r_cap,-(q+1)) - p*B*pow(r_cap,-(p+1)))
-            - (B*pow(r_cap,-p) - pow(r_cap,-q)) * pow((r - cutoff)/sigma, -2);
+              - (B*pow(r_cap,-p) - pow(r_cap,-q)) * pow((r - cutoff)/sigma, -2);
       *dphi *= (1/sigma) * A * exp(sigma/(r - cutoff));
 
       *d2phi = (B*pow(r_cap,-p) - pow(r_cap,-q)) * 
@@ -243,10 +240,9 @@ static void calc_phi_three(double cutoff_ij,double cutoff_ik, double lambda,
 
   dphi has three components as derivatives of phi w.r.t. rij, rik, rjk
 */
-static void calc_phi_dphi_three(double cutoff_ij, double cutoff_ik, double lambda, double gamma_ij,
-                                double gamma_ik, 
-                                double costheta, double rij,
-                                double rik, double rjk, double* phi, double* dphi)
+static void calc_phi_dphi_three(double cutoff_ij, double cutoff_ik, double lambda,
+                                double gamma_ij, double gamma_ik, double costheta,
+                                double rij, double rik, double rjk, double* phi, double* dphi)
 {
    double costhetajik;
    double diff_costhetajik;
@@ -299,8 +295,8 @@ static void calc_phi_dphi_three(double cutoff_ij, double cutoff_ik, double lambd
 */
 static void calc_phi_d2phi_three(double cutoff_ij, double cutoff_ik, double lambda,
                                  double gamma_ij, double gamma_ik, double costheta,
-                                 double rij, double rik, double rjk, double* phi,
-                                 double* dphi, double* d2phi)
+                                 double rij, double rik, double rjk,
+                                 double* phi, double* dphi, double* d2phi)
 {
     /* local variables */
    double costhetajik;
@@ -1225,7 +1221,6 @@ int model_driver_init(void *km, char* paramfile_names, int* nmstrlen, int* numpa
      }
    }
 
-
    for (i=0; i< num_interactions; ++i) {
      model_cutsq[i] = model_cutoff[i]*model_cutoff[i];
    }
@@ -1416,8 +1411,8 @@ static int reinit(void *km)
 
    /* let KIM cutoff be the largest among the species interaction in simulator */
    *cutoff = 0.0;
-   for (i=0; i<nSpecies; ++i) {
-     for (j=i; j<nSpecies; ++j) {
+   for (i=0; i < *nSpecies; ++i) {
+     for (j=i; j < *nSpecies; ++j) {
        index = get_param_index(sim_species_code[i], sim_species_code[j], num_model_species);
        buffer->cutsq[index] = buffer->cutoff[index]*buffer->cutoff[index];
        if (buffer->cutoff[index] > *cutoff) {

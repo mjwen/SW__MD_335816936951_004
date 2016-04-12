@@ -27,15 +27,12 @@
 #    Valeriu Smirichinski
 #
 
-#
-#
-
 
 # load all basic KIM make configuration
 include ../Makefile.KIM_Config
 
 # set model driver specific details
-MODEL_DRIVER_NAME := Three_Body_Stillinger_Weber__MD_000000111111_000
+MODEL_DRIVER_NAME := Three_Body_Stillinger_Weber__MD_335816936951_002
 MODEL_DRIVER_KIM_FILE_TEMPLATE := Three_Body_Stillinger_Weber.kim.tpl
 MODEL_DRIVER_INIT_FUNCTION_NAME := model_driver_init
 
