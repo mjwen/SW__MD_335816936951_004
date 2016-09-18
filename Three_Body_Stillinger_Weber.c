@@ -553,7 +553,8 @@ static int compute(void* km)
          particleEnergy[i] = 0.0;
       }
    }
-   else if (comp_energy)
+
+   if (comp_energy)
    {
       *energy = 0.0;
    }
