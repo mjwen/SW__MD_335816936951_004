@@ -46,7 +46,6 @@
 #include "KIM_CallbackName.hpp"
 
 #define MAXLINE 1024
-#define IGNORE_RESULT(fn) if(fn){}
 
 
 //==============================================================================
@@ -67,31 +66,21 @@ StillingerWeberImplementation::StillingerWeberImplementation(
     int * const ier)
 : numberModelSpecies_(0),
   numberUniqueSpeciesPairs_(0),
-  shift_(0),
-  cutoffs_(0),
-  epsilons_(0),
-  sigmas_(0),
+  cutoff_(0),
+  sigma_(0),
   influenceDistance_(0.0),
-  cutoffsSq2D_(0),
-  fourEpsilonSigma6_2D_(0),
-  fourEpsilonSigma12_2D_(0),
-  twentyFourEpsilonSigma6_2D_(0),
-  fortyEightEpsilonSigma12_2D_(0),
-  oneSixtyEightEpsilonSigma6_2D_(0),
-  sixTwentyFourEpsilonSigma12_2D_(0),
-  shifts2D_(0),
+  cutoffSq_2D_(0),
+  sigma_2D_(0),
   cachedNumberOfParticles_(0)
 {
   FILE* parameterFilePointers[MAX_PARAMETER_FILES];
   int numberParameterFiles;
-  modelDriverCreate->GetNumberOfParameterFiles(
-      &numberParameterFiles);
+  modelDriverCreate->GetNumberOfParameterFiles(&numberParameterFiles);
   *ier = OpenParameterFiles(modelDriverCreate, numberParameterFiles,
                             parameterFilePointers);
   if (*ier) return;
 
-  *ier = ProcessParameterFiles(modelDriverCreate,
-                               numberParameterFiles,
+  *ier = ProcessParameterFiles(modelDriverCreate, numberParameterFiles,
                                parameterFilePointers);
   CloseParameterFiles(numberParameterFiles, parameterFilePointers);
   if (*ier) return;
@@ -126,17 +115,10 @@ StillingerWeberImplementation::~StillingerWeberImplementation()
 { // note: it is ok to delete a null pointer and we have ensured that
   // everything is initialized to null
 
-  delete [] cutoffs_;
-  Deallocate2DArray(cutoffsSq2D_);
-  delete [] epsilons_;
-  delete [] sigmas_;
-  Deallocate2DArray(fourEpsilonSigma6_2D_);
-  Deallocate2DArray(fourEpsilonSigma12_2D_);
-  Deallocate2DArray(twentyFourEpsilonSigma6_2D_);
-  Deallocate2DArray(fortyEightEpsilonSigma12_2D_);
-  Deallocate2DArray(oneSixtyEightEpsilonSigma6_2D_);
-  Deallocate2DArray(sixTwentyFourEpsilonSigma12_2D_);
-  Deallocate2DArray(shifts2D_);
+  delete [] cutoff_;
+  Deallocate2DArray(cutoffSq_2D_);
+  delete [] sigma_;
+  Deallocate2DArray(sigma_2D_);
 }
 
 //******************************************************************************
@@ -191,7 +173,6 @@ int StillingerWeberImplementation::Compute(
   // ier = CheckParticleSpecies(pkim, particleSpecies);
   // if (ier) return ier;
 
-  bool const isShift = (1 == shift_);
 
 #include "StillingerWeberImplementationComputeDispatch.cpp"
   return ier;
@@ -212,35 +193,29 @@ int StillingerWeberImplementation::OpenParameterFiles(
 {
   int ier;
 
-  if (numberParameterFiles > MAX_PARAMETER_FILES)
-  {
+  if (numberParameterFiles > MAX_PARAMETER_FILES) {
     ier = true;
     LOG_ERROR("StillingerWeber given too many parameter files");
     return ier;
   }
 
-  for (int i = 0; i < numberParameterFiles; ++i)
-  {
+  for (int i = 0; i < numberParameterFiles; ++i) {
     std::string paramFileName;
-    ier = modelDriverCreate->GetParameterFileName(
-        i,
-        &paramFileName);
-    if (ier)
-    {
+    ier = modelDriverCreate->GetParameterFileName(i, &paramFileName);
+    if (ier) {
       LOG_ERROR("Unable to get parameter file name");
       return ier;
     }
+
     parameterFilePointers[i] = fopen(paramFileName.c_str(), "r");
-    if (parameterFilePointers[i] == 0)
-    {
+    if (parameterFilePointers[i] == 0) {
       char message[MAXLINE];
       sprintf(message,
               "StillingerWeber parameter file number %d cannot be opened",
               i);
       ier = true;
       LOG_ERROR(message);
-      for (int j = i - 1; i <= 0; --i)
-      {
+      for (int j = i - 1; i <= 0; --i) {
         fclose(parameterFilePointers[j]);
       }
       return ier;
@@ -269,8 +244,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   getNextDataLine(parameterFilePointers[0], nextLinePtr,
                   MAXLINE, &endOfFileFlag);
   ier = sscanf(nextLine, "%d %d", &N, &shift_);
-  if (ier != 2)
-  {
+  if (ier != 2) {
     sprintf(nextLine, "unable to read first line of the parameter file");
     ier = true;
     LOG_ERROR(nextLine);
@@ -282,11 +256,9 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   AllocateFreeParameterMemory();
 
   // set all values in the arrays to -1 for mixing later
-  for (int i = 0; i < ((N+1)*N/2); i++)
-  {
-    cutoffs_[i]  = -1;
-    epsilons_[i] = -1;
-    sigmas_[i] = -1;
+  for (int i = 0; i < ((N+1)*N/2); i++) {
+    cutoff_[i]  = -1;
+    sigma_[i] = -1;
   }
 
 
@@ -302,8 +274,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   {
     ier = sscanf(nextLine, "%s  %s %lg %lg %lg",
                  spec1, spec2, &nextCutoff, &nextEpsilon, &nextSigma);
-    if (ier != 5)
-    {
+    if (ier != 5) {
       sprintf(nextLine, "error reading lines of the parameter file");
       LOG_ERROR(nextLine);
       return true;
@@ -315,8 +286,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
 
     // check for new species
     auto iIter = modelSpeciesMap.find(specName1);
-    if (iIter == modelSpeciesMap.end())
-    {
+    if (iIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName1] = index;
       modelSpeciesCodeList_.push_back(index);
       speciesNameVector.push_back(specName1);
@@ -326,13 +296,12 @@ int StillingerWeberImplementation::ProcessParameterFiles(
       iIndex = index;
       index++;
     }
-    else
-    {
+    else {
       iIndex = modelSpeciesMap[specName1];
     }
+
     auto jIter = modelSpeciesMap.find(specName2);
-    if (jIter == modelSpeciesMap.end())
-    {
+    if (jIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName2] = index;
       modelSpeciesCodeList_.push_back(index);
       speciesNameVector.push_back(specName2);
@@ -342,22 +311,18 @@ int StillingerWeberImplementation::ProcessParameterFiles(
       jIndex = index;
       index++;
     }
-    else
-    {
+    else {
       jIndex = modelSpeciesMap[specName2];
     }
 
-    if (iIndex >= jIndex)
-    {
+    if (iIndex >= jIndex) {
       indx = jIndex*N + iIndex - (jIndex*jIndex + jIndex)/2;
     }
-    else
-    {
+    else {
       indx = iIndex*N + jIndex - (iIndex*iIndex + iIndex)/2;
     }
-    cutoffs_[indx] = nextCutoff;
-    epsilons_[indx] = nextEpsilon;
-    sigmas_[indx] = nextSigma;
+    cutoff_[indx] = nextCutoff;
+    sigma_[indx] = nextSigma;
 
     getNextDataLine(parameterFilePointers[0], nextLinePtr,
                     MAXLINE, &endOfFileFlag);
@@ -365,34 +330,27 @@ int StillingerWeberImplementation::ProcessParameterFiles(
 
   // check that we got all like - like pairs
   sprintf(nextLine, "There are not values for like-like pairs of:");
-  for (int i = 0; i < N; i++)
-  {
-    if (cutoffs_[(i*N + i - (i*i + i)/2)] == -1)
-    {
+  for (int i = 0; i < N; i++) {
+    if (cutoff_[(i*N + i - (i*i + i)/2)] == -1) {
       strcat(nextLine, "  ");
       strcat(nextLine, (speciesNameVector[i].String()).c_str());
       ier = -1;
     }
   }
-  if (ier == -1)
-  {
+  if (ier == -1) {
     LOG_ERROR(nextLine);
     return true;
   }
 
   // Perform Mixing if nessisary
-  for (int jIndex = 0; jIndex < N; jIndex++)
-  {
+  for (int jIndex = 0; jIndex < N; jIndex++) {
     jjIndex = (jIndex*N + jIndex - (jIndex*jIndex + jIndex)/2);
-    for (int iIndex = (jIndex+1) ; iIndex < N; iIndex++)
-    {
+    for (int iIndex = (jIndex+1) ; iIndex < N; iIndex++) {
       indx = jIndex*N + iIndex - (jIndex*jIndex + jIndex)/2;
-      if (cutoffs_[indx] == -1)
-      {
+      if (cutoff_[indx] == -1) {
         iiIndex = (iIndex*N + iIndex - (iIndex*iIndex + iIndex)/2);
-        epsilons_[indx] = sqrt(epsilons_[iiIndex]*epsilons_[jjIndex]);
-        sigmas_[indx] = (sigmas_[iiIndex] + sigmas_[jjIndex])/2.0;
-        cutoffs_[indx] = (cutoffs_[iiIndex] + cutoffs_[jjIndex])/2.0;
+        sigma_[indx] = (sigma_[iiIndex] + sigma_[jjIndex])/2.0;
+        cutoff_[indx] = (cutoff_[iiIndex] + cutoff_[jjIndex])/2.0;
       }
     }
   }
@@ -409,17 +367,18 @@ void StillingerWeberImplementation::getNextDataLine(
 {
   do
   {
-    if(fgets(nextLinePtr, maxSize, filePtr) == NULL)
-    {
+    if(fgets(nextLinePtr, maxSize, filePtr) == NULL) {
       *endOfFileFlag = 1;
       break;
     }
+
     while ((nextLinePtr[0] == ' ' || nextLinePtr[0] == '\t') ||
            (nextLinePtr[0] == '\n' || nextLinePtr[0] == '\r' ))
     {
       nextLinePtr = (nextLinePtr + 1);
     }
   }
+
   while ((strncmp("#", nextLinePtr, 1) == 0) || (strlen(nextLinePtr) == 0));
 }
 
@@ -435,27 +394,12 @@ void StillingerWeberImplementation::CloseParameterFiles(
 //******************************************************************************
 void StillingerWeberImplementation::AllocateFreeParameterMemory()
 { // allocate memory for data
-  cutoffs_ = new double[numberUniqueSpeciesPairs_];
-  AllocateAndInitialize2DArray(cutoffsSq2D_, numberModelSpecies_,
-                               numberModelSpecies_);
+  cutoff_ = new double[numberUniqueSpeciesPairs_];
+  AllocateAndInitialize2DArray(cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
 
-  epsilons_ = new double[numberUniqueSpeciesPairs_];
-  sigmas_ = new double[numberUniqueSpeciesPairs_];
-  AllocateAndInitialize2DArray(fourEpsilonSigma6_2D_, numberModelSpecies_,
-                               numberModelSpecies_);
-  AllocateAndInitialize2DArray(fourEpsilonSigma12_2D_, numberModelSpecies_,
-                               numberModelSpecies_);
-  AllocateAndInitialize2DArray(twentyFourEpsilonSigma6_2D_, numberModelSpecies_,
-                               numberModelSpecies_);
-  AllocateAndInitialize2DArray(fortyEightEpsilonSigma12_2D_,
-                               numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(oneSixtyEightEpsilonSigma6_2D_,
-                               numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(sixTwentyFourEpsilonSigma12_2D_,
-                               numberModelSpecies_, numberModelSpecies_);
+  sigma_ = new double[numberUniqueSpeciesPairs_];
+  AllocateAndInitialize2DArray(sigma_2D_, numberModelSpecies_, numberModelSpecies_);
 
-  AllocateAndInitialize2DArray(shifts2D_, numberModelSpecies_,
-                               numberModelSpecies_);
 }
 
 //******************************************************************************
@@ -477,7 +421,7 @@ int StillingerWeberImplementation::ConvertUnits(
   KIM::TemperatureUnit fromTemperature = KIM::TEMPERATURE_UNIT::K;
   KIM::TimeUnit fromTime = KIM::TIME_UNIT::ps;
 
-  // changing units of cutoffs and sigmas
+  // changing units of cutoff and sigma
   double convertLength = 1.0;
   ier = modelDriverCreate->ConvertUnit(
       fromLength, fromEnergy, fromCharge, fromTemperature, fromTime,
@@ -485,17 +429,15 @@ int StillingerWeberImplementation::ConvertUnits(
       requestedTemperatureUnit, requestedTimeUnit,
       1.0, 0.0, 0.0, 0.0, 0.0,
       &convertLength);
-  if (ier)
-  {
+  if (ier) {
     LOG_ERROR("Unable to convert length unit");
     return ier;
   }
-  if (convertLength != ONE)
-  {
-    for (int i = 0; i < numberUniqueSpeciesPairs_; ++i)
-    {
-      cutoffs_[i] *= convertLength;  // convert to active units
-      sigmas_[i] *= convertLength;  // convert to active units
+
+  if (convertLength != ONE) {
+    for (int i = 0; i < numberUniqueSpeciesPairs_; ++i) {
+      cutoff_[i] *= convertLength;  // convert to active units
+      sigma_[i] *= convertLength;  // convert to active units
     }
   }
   // changing units of epsilons
@@ -506,15 +448,13 @@ int StillingerWeberImplementation::ConvertUnits(
       requestedTemperatureUnit, requestedTimeUnit,
       0.0, 1.0, 0.0, 0.0, 0.0,
       &convertEnergy);
-  if (ier)
-  {
+  if (ier) {
     LOG_ERROR("Unable to convert energy unit");
     return ier;
   }
-  if (convertEnergy != ONE)
-  {
-    for (int i = 0; i < numberUniqueSpeciesPairs_; ++i)
-    {
+
+  if (convertEnergy != ONE) {
+    for (int i = 0; i < numberUniqueSpeciesPairs_; ++i) {
       epsilons_[i] *= convertEnergy;  // convert to active units
     }
   }
@@ -526,8 +466,7 @@ int StillingerWeberImplementation::ConvertUnits(
       requestedChargeUnit,
       requestedTemperatureUnit,
       requestedTimeUnit);
-  if (ier)
-  {
+  if (ier) {
     LOG_ERROR("Unable to set units to requested values");
     return ier;
   }
@@ -553,8 +492,7 @@ int StillingerWeberImplementation::RegisterKIMModelSettings(
       || modelDriverCreate->SetArgumentSupportStatus(
           KIM::ARGUMENT_NAME::partialForces, KIM::SUPPORT_STATUS::optional)
       || modelDriverCreate->SetArgumentSupportStatus(
-          KIM::ARGUMENT_NAME::partialParticleEnergy,
-          KIM::SUPPORT_STATUS::optional);
+          KIM::ARGUMENT_NAME::partialParticleEnergy, KIM::SUPPORT_STATUS::optional);
 
   // register callbacks
   LOG_INFORMATION("Register callback supportStatus");
@@ -574,31 +512,17 @@ int StillingerWeberImplementation::RegisterKIMParameters(
   int ier = false;
 
   // publish parameters (order is important)
-  ier = modelDriverCreate->SetParameterPointer(1, &shift_, "shift");
-  if (ier)
-  {
-    LOG_ERROR("set_parameter shift");
+  ier = modelDriverCreate->SetParameterPointer(
+      numberUniqueSpeciesPairs_, cutoff_, "cutoff");
+  if (ier) {
+    LOG_ERROR("set_parameter cutoff");
     return ier;
   }
+
   ier = modelDriverCreate->SetParameterPointer(
-      numberUniqueSpeciesPairs_, cutoffs_, "cutoffs");
-  if (ier)
-  {
-    LOG_ERROR("set_parameter cutoffs");
-    return ier;
-  }
-  ier = modelDriverCreate->SetParameterPointer(
-      numberUniqueSpeciesPairs_, epsilons_, "epsilons");
-  if (ier)
-  {
-    LOG_ERROR("set_parameter epsilons");
-    return ier;
-  }
-  ier = modelDriverCreate->SetParameterPointer(
-      numberUniqueSpeciesPairs_, sigmas_, "sigmas");
-  if (ier)
-  {
-    LOG_ERROR("set_parameter sigmas");
+      numberUniqueSpeciesPairs_, sigma_, "sigma");
+  if (ier) {
+    LOG_ERROR("set_parameter sigma");
     return ier;
   }
 
@@ -614,7 +538,7 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
 {
   int error;
 
-  // register the destroy() and reinit() functions
+  // register the Destroy(), Fresh(), and Compute() functions
   error = modelDriverCreate->SetDestroyPointer(
       KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Destroy))
       || modelDriverCreate->SetRefreshPointer(
@@ -632,45 +556,26 @@ int StillingerWeberImplementation::SetReinitMutableValues(
 { // use (possibly) new values of free parameters to compute other quantities
   int ier;
 
-  // update cutoffsSq, epsilons, and sigmas
-  for (int i = 0; i < numberModelSpecies_; ++i)
-  {
-    for (int j = 0; j <= i ; ++j)
-    {
+  // update cutoffSq_2D
+  for (int i = 0; i < numberModelSpecies_; ++i) {
+    for (int j = 0; j <= i ; ++j) {
       int const index = j*numberModelSpecies_ + i - (j*j + j)/2;
-      cutoffsSq2D_[i][j] = cutoffsSq2D_[j][i]
-          = (cutoffs_[index]*cutoffs_[index]);
-      fourEpsilonSigma6_2D_[i][j] = fourEpsilonSigma6_2D_[j][i]
-          = 4.0*epsilons_[index]*pow(sigmas_[index],6.0);
-      fourEpsilonSigma12_2D_[i][j] = fourEpsilonSigma12_2D_[j][i]
-          = 4.0*epsilons_[index]*pow(sigmas_[index],12.0);
-      twentyFourEpsilonSigma6_2D_[i][j] = twentyFourEpsilonSigma6_2D_[j][i]
-          = 6.0*fourEpsilonSigma6_2D_[i][j];
-      fortyEightEpsilonSigma12_2D_[i][j] = fortyEightEpsilonSigma12_2D_[j][i]
-          = 12.0*fourEpsilonSigma12_2D_[i][j];
-      oneSixtyEightEpsilonSigma6_2D_[i][j]
-          = oneSixtyEightEpsilonSigma6_2D_[j][i]
-          = 7.0*twentyFourEpsilonSigma6_2D_[i][j];
-      sixTwentyFourEpsilonSigma12_2D_[i][j]
-          = sixTwentyFourEpsilonSigma12_2D_[j][i]
-          = 13.0*fortyEightEpsilonSigma12_2D_[i][j];
+      cutoffSq_2D_[i][j] = cutoffSq_2D_[j][i] = cutoff_[index]*cutoff_[index];
+      sigma_2D_[i][j] = sigma_2D_[j][i] = sigma_[index]*simga_[index];
     }
   }
 
   // update cutoff value in KIM API object
   influenceDistance_ = 0.0;
 
-  for (int i = 0; i < numberModelSpecies_; i++)
-  {
+  for (int i = 0; i < numberModelSpecies_; i++) {
     int indexI = modelSpeciesCodeList_[i];
 
-    for (int j = 0; j < numberModelSpecies_; j++)
-    {
+    for (int j = 0; j < numberModelSpecies_; j++) {
       int indexJ = modelSpeciesCodeList_[j];
 
-      if (influenceDistance_ < cutoffsSq2D_[indexI][indexJ])
-      {
-        influenceDistance_ = cutoffsSq2D_[indexI][indexJ];
+      if (influenceDistance_ < cutoffSq_2D_[indexI][indexJ]) {
+        influenceDistance_ = cutoffSq_2D_[indexI][indexJ];
       }
     }
   }
@@ -679,27 +584,6 @@ int StillingerWeberImplementation::SetReinitMutableValues(
   modelObj->SetInfluenceDistancePointer(&influenceDistance_);
   modelObj->SetCutoffsPointer(1, &influenceDistance_);
 
-  // update shifts
-  // compute and set shifts2D_ check if minus sign
-  double const* const* const  constFourEpsSig6_2D = fourEpsilonSigma6_2D_;
-  double const* const* const  constFourEpsSig12_2D = fourEpsilonSigma12_2D_;
-  if (1 == shift_)
-  {
-    double phi;
-    for (int iSpecies = 0; iSpecies < numberModelSpecies_; iSpecies++)
-    {
-      for(int jSpecies = 0; jSpecies <= iSpecies; jSpecies++)
-      {
-        int const index = jSpecies*numberModelSpecies_ + iSpecies
-            - (jSpecies*jSpecies + jSpecies)/2;
-        double const rij2 = cutoffs_[index]*cutoffs_[index];
-        double const r2iv = 1.0/rij2;
-        double const r6iv = r2iv*r2iv*r2iv;
-        LENNARD_JONES_PHI(;);
-        shifts2D_[iSpecies][jSpecies] = shifts2D_[jSpecies][iSpecies] = phi;
-      }
-    }
-  }
 
   // everything is good
   ier = false;
@@ -736,8 +620,7 @@ int StillingerWeberImplementation::SetComputeMutableValues(
   isComputeProcess_dEdr = compProcess_dEdr;
   isComputeProcess_d2Edr2 = compProcess_d2Edr2;
 
-  // double const* cutoff;            // currently unused
-  // int const* numberOfSpecies;  // currently unused
+
   int const* numberOfParticles;
   ier =
       modelCompute->GetArgumentPointer(
@@ -767,9 +650,9 @@ int StillingerWeberImplementation::SetComputeMutableValues(
     return ier;
   }
 
-  isComputeEnergy = (energy != 0);
-  isComputeParticleEnergy = (particleEnergy != 0);
-  isComputeForces = (forces != 0);
+  isComputeEnergy = (energy != nullptr);
+  isComputeParticleEnergy = (particleEnergy != nullptr);
+  isComputeForces = (forces != nullptr);
 
   // update values
   cachedNumberOfParticles_ = *numberOfParticles;
@@ -780,16 +663,15 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 }
 
 //******************************************************************************
+// Assume that the particle interge codes starts from 0
 int StillingerWeberImplementation::CheckParticleSpecies(
     KIM::ModelCompute const * const modelCompute,
     int const* const particleSpecies)
     const
 {
   int ier;
-  for (int i = 0; i < cachedNumberOfParticles_; ++i)
-  {
-    if ((particleSpecies[i] < 0) || (particleSpecies[i] >= numberModelSpecies_))
-    {
+  for (int i = 0; i < cachedNumberOfParticles_; ++i) {
+    if ((particleSpecies[i] < 0) || (particleSpecies[i] >= numberModelSpecies_)) {
       ier = true;
       LOG_ERROR("unsupported particle species detected");
       return ier;
@@ -807,41 +689,33 @@ int StillingerWeberImplementation::GetComputeIndex(
     const bool& isComputeProcess_d2Edr2,
     const bool& isComputeEnergy,
     const bool& isComputeForces,
-    const bool& isComputeParticleEnergy,
-    const bool& isShift) const
+    const bool& isComputeParticleEnergy) const
 {
   //const int processdE = 2;
   const int processd2E = 2;
   const int energy = 2;
   const int force = 2;
   const int particleEnergy = 2;
-  const int shift = 2;
 
 
   int index = 0;
 
   // processdE
   index += (int(isComputeProcess_dEdr))
-      * processd2E * energy * force * particleEnergy * shift;
+      * processd2E * energy * force * particleEnergy;
 
   // processd2E
-  index += (int(isComputeProcess_d2Edr2))
-      * energy * force * particleEnergy * shift;
+  index += (int(isComputeProcess_d2Edr2)) * energy * force * particleEnergy;
 
   // energy
-  index += (int(isComputeEnergy))
-      * force * particleEnergy * shift;
+  index += (int(isComputeEnergy)) * force * particleEnergy;
 
   // force
-  index += (int(isComputeForces))
-      * particleEnergy * shift;
+  index += (int(isComputeForces)) * particleEnergy;
 
   // particleEnergy
-  index += (int(isComputeParticleEnergy))
-      * shift;
+  index += (int(isComputeParticleEnergy));
 
-  // shift
-  index += (int(isShift));
 
   return index;
 }
@@ -858,16 +732,13 @@ void AllocateAndInitialize2DArray(double**& arrayPtr, int const extentZero,
 { // allocate memory and set pointers
   arrayPtr = new double*[extentZero];
   arrayPtr[0] = new double[extentZero * extentOne];
-  for (int i = 1; i < extentZero; ++i)
-  {
+  for (int i = 1; i < extentZero; ++i) {
     arrayPtr[i] = arrayPtr[i-1] + extentOne;
   }
 
   // initialize
-  for (int i = 0; i < extentZero; ++i)
-  {
-    for (int j = 0; j < extentOne; ++j)
-    {
+  for (int i = 0; i < extentZero; ++i) {
+    for (int j = 0; j < extentOne; ++j) {
       arrayPtr[i][j] = 0.0;
     }
   }

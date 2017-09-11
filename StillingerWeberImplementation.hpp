@@ -19,12 +19,11 @@
 //
 
 //
-// Copyright (c) 2015, Regents of the University of Minnesota.
+// Copyright (c) 2017, Regents of the University of Minnesota.
 // All rights reserved.
 //
 // Contributors:
-//    Ryan S. Elliott
-//    Andrew Akerson
+//    Mingjian Wen
 //
 
 
@@ -42,11 +41,6 @@
 
 #define MAX_PARAMETER_FILES 1
 
-#define PARAM_SHIFT_INDEX 0
-#define PARAM_CUTOFFS_INDEX 1
-#define PARAM_EPSILONS_INDEX 2
-#define PARAM_SIGMAS_INDEX 3
-
 
 //==============================================================================
 //
@@ -57,6 +51,7 @@
 // type declaration for get neighbor functions
 typedef int (GetNeighborFunction)(void const * const, int const,
                                   int * const, int const ** const);
+
 // type declaration for vector of constant dimension
 typedef double VectorOfSizeDIM[DIMENSION];
 
@@ -113,13 +108,12 @@ class StillingerWeberImplementation
   //   Memory allocated in   AllocateFreeParameterMemory() (from constructor)
   //   Memory deallocated in destructor
   //   Data set in ReadParameterFile routines OR by KIM Simulator
-  int shift_;
-  double* cutoffs_;
-  double* epsilons_;
-  double* sigmas_;
+  double* cutoff_;
+  double* sigma_;
 
-  // Mutable values that only change when reinit() executes
-  //   Set in Reinit (via SetReinitMutableValues)
+
+  // Mutable values that only change when Refresh() executes
+  //   Set in Refresh (via SetReinitMutableValues)
   //
   //
   // KIM API: Model Fixed Parameters
@@ -130,17 +124,11 @@ class StillingerWeberImplementation
   //
   // StillingerWeberImplementation: values
   double influenceDistance_;
-  double** cutoffsSq2D_;
-  double** fourEpsilonSigma6_2D_;
-  double** fourEpsilonSigma12_2D_;
-  double** twentyFourEpsilonSigma6_2D_;
-  double** fortyEightEpsilonSigma12_2D_;
-  double** oneSixtyEightEpsilonSigma6_2D_;
-  double** sixTwentyFourEpsilonSigma12_2D_;
-  double** shifts2D_;
+  double** cutoffSq_2D_;
+  double** sigma_2D_;
 
 
-  // Mutable values that can change with each call to Reinit() and Compute()
+  // Mutable values that can change with each call to Refresh() and Compute()
   //   Memory may be reallocated on each call
   //
   //
@@ -180,7 +168,7 @@ class StillingerWeberImplementation
   int RegisterKIMFunctions(
       KIM::ModelDriverCreate * const modelDriverCreate) const;
   //
-  // Related to Reinit()
+  // Related to Refresh()
   template<class ModelObj>
   int SetReinitMutableValues(ModelObj * const modelObj);
 
@@ -204,13 +192,12 @@ class StillingerWeberImplementation
                       const bool& isComputeProcess_d2Edr2,
                       const bool& isComputeEnergy,
                       const bool& isComputeForces,
-                      const bool& isComputeParticleEnergy,
-                      const bool& isShift) const;
+                      const bool& isComputeParticleEnergy) const;
 
   // compute functions
   template< bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
             bool isComputeEnergy, bool isComputeForces,
-            bool isComputeParticleEnergy, bool isShift >
+            bool isComputeParticleEnergy>
   int Compute(KIM::ModelCompute const * const modelCompute,
               const int* const particleSpecies,
               const int* const particleContributing,
@@ -230,20 +217,10 @@ class StillingerWeberImplementation
 //
 //==============================================================================
 
-//******************************************************************************
-// MACRO to compute Lennard-Jones phi
-// (used for efficiency)
-//
-// exshift - expression to be added to the end of the phi value
-#define LENNARD_JONES_PHI(exshift)                                      \
-  phi = r6iv * (constFourEpsSig12_2D[iSpecies][jSpecies]*r6iv -         \
-                constFourEpsSig6_2D[iSpecies][jSpecies]) exshift;
-
-//******************************************************************************
 #include "KIM_ModelComputeLogMacros.hpp"
 template< bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
           bool isComputeEnergy, bool isComputeForces,
-          bool isComputeParticleEnergy, bool isShift >
+          bool isComputeParticleEnergy>
 int StillingerWeberImplementation::Compute(
     KIM::ModelCompute const * const modelCompute,
     const int* const particleSpecies,
@@ -263,23 +240,20 @@ int StillingerWeberImplementation::Compute(
     return ier;
 
   // initialize energy and forces
-  if (isComputeEnergy == true)
-  {
+  if (isComputeEnergy == true) {
     *energy = 0.0;
   }
-  if (isComputeParticleEnergy == true)
-  {
+
+  if (isComputeParticleEnergy == true) {
     int const cachedNumParticles = cachedNumberOfParticles_;
-    for (int i = 0; i < cachedNumParticles; ++i)
-    {
+    for (int i = 0; i < cachedNumParticles; ++i) {
       particleEnergy[i] = 0.0;
     }
   }
-  if (isComputeForces == true)
-  {
+
+  if (isComputeForces == true) {
     int const cachedNumParticles = cachedNumberOfParticles_;
-    for (int i = 0; i < cachedNumParticles; ++i)
-    {
+    for (int i = 0; i < cachedNumParticles; ++i) {
       for (int j = 0; j < DIMENSION; ++j)
         forces[i][j] = 0.0;
     }
@@ -292,21 +266,9 @@ int StillingerWeberImplementation::Compute(
   int numnei = 0;
   int const * n1atom = 0;
   double const* const* const  constCutoffsSq2D = cutoffsSq2D_;
-  double const* const* const  constFourEpsSig6_2D = fourEpsilonSigma6_2D_;
-  double const* const* const  constFourEpsSig12_2D = fourEpsilonSigma12_2D_;
-  double const* const* const  constTwentyFourEpsSig6_2D
-      = twentyFourEpsilonSigma6_2D_;
-  double const* const* const  constFortyEightEpsSig12_2D
-      = fortyEightEpsilonSigma12_2D_;
-  double const* const* const  constOneSixtyEightEpsSig6_2D
-      = oneSixtyEightEpsilonSigma6_2D_;
-  double const* const* const  constSixTwentyFourEpsSig12_2D
-      = sixTwentyFourEpsilonSigma12_2D_;
-  double const* const* const  constShifts2D = shifts2D_;
-  for (ii = 0; ii < cachedNumberOfParticles_; ++ii)
-  {
-    if (particleContributing[ii])
-    {
+
+  for (ii = 0; ii < cachedNumberOfParticles_; ++ii) {
+    if (particleContributing[ii]) {
       modelCompute->GetNeighborList(0, ii, &numnei, &n1atom);
       int const numNei = numnei;
       int const * const n1Atom = n1atom;
@@ -314,8 +276,7 @@ int StillingerWeberImplementation::Compute(
       int const iSpecies = particleSpecies[i];
 
       // Setup loop over neighbors of current particle
-      for (int jj = 0; jj < numNei; ++jj)
-      {
+      for (int jj = 0; jj < numNei; ++jj) {
         int const j = n1Atom[jj];
         int const jSpecies = particleSpecies[j];
         double* r_ij;
@@ -332,8 +293,8 @@ int StillingerWeberImplementation::Compute(
             r_ij_const[1] * r_ij_const[1] +
             r_ij_const[2] * r_ij_const[2];
 
-        if (rij2 <= constCutoffsSq2D[iSpecies][jSpecies])
-        { // compute contribution to energy, force, etc.
+        if (rij2 <= constCutoffsSq2D[iSpecies][jSpecies]) {
+          // compute contribution to energy, force, etc.
           double phi = 0.0;
           double dphiByR = 0.0;
           double d2phi = 0.0;
@@ -341,55 +302,39 @@ int StillingerWeberImplementation::Compute(
           double d2Eidr2 = 0.0;
           double const r2iv = 1.0/rij2;
           double const r6iv = r2iv*r2iv*r2iv;
+
           // Compute pair potential and its derivatives
-          if (isComputeProcess_d2Edr2 == true)
-          { // Compute d2phi
+          if (isComputeProcess_d2Edr2 == true) {
+            // Compute d2phi
             d2phi =
-                r6iv * (constSixTwentyFourEpsSig12_2D[iSpecies][jSpecies]*r6iv -
-                        constOneSixtyEightEpsSig6_2D[iSpecies][jSpecies])
-                * r2iv;
             d2Eidr2 = 0.5*d2phi;
           }
 
-          if ((isComputeProcess_dEdr == true) || (isComputeForces == true))
-          { // Compute dphi
+          if ((isComputeProcess_dEdr == true) || (isComputeForces == true)) {
+            // Compute dphi
             dphiByR =
-                r6iv * (constTwentyFourEpsSig6_2D[iSpecies][jSpecies] -
-                        constFortyEightEpsSig12_2D[iSpecies][jSpecies]*r6iv)
-                * r2iv;
             dEidrByR = 0.5*dphiByR;
           }
 
-          if ((isComputeEnergy == true) || (isComputeParticleEnergy == true))
-          { // Compute phi
-            if (isShift == true)
-            {
-              LENNARD_JONES_PHI(- constShifts2D[iSpecies][jSpecies]);
-            }
-            else
-            {
-              LENNARD_JONES_PHI(;);
-            }
+          if ((isComputeEnergy == true) || (isComputeParticleEnergy == true)) {
+            // Compute phi
+
           }
 
           // Contribution to energy
-          if (isComputeEnergy == true)
-          {
+          if (isComputeEnergy == true) {
             *energy += 0.5*phi;
           }
 
           // Contribution to particleEnergy
-          if (isComputeParticleEnergy == true)
-          {
+          if (isComputeParticleEnergy == true) {
             double const halfPhi = 0.5*phi;
             particleEnergy[i] += halfPhi;
           }
 
           // Contribution to forces
-          if (isComputeForces == true)
-          {
-            for (int k = 0; k < DIMENSION; ++k)
-            {
+          if (isComputeForces == true) {
+            for (int k = 0; k < DIMENSION; ++k) {
               double const contrib = dEidrByR * r_ij_const[k];
               forces[i][k] += contrib;
               forces[j][k] -= contrib;
@@ -397,21 +342,18 @@ int StillingerWeberImplementation::Compute(
           }
 
           // Call process_dEdr
-          if (isComputeProcess_dEdr == true)
-          {
+          if (isComputeProcess_dEdr == true) {
             double const rij = sqrt(rij2);
             double const dEidr = dEidrByR*rij;
             ier = modelCompute->ProcessDEDrTerm(dEidr, rij, r_ij_const, i, j);
-            if (ier)
-            {
+            if (ier) {
               LOG_ERROR("process_dEdr");
               return ier;
             }
           }
 
           // Call process_d2Edr2
-          if (isComputeProcess_d2Edr2 == true)
-          {
+          if (isComputeProcess_d2Edr2 == true) {
             double const rij = sqrt(rij2);
             double const R_pairs[2] = {rij, rij};
             double const* const pRs = &R_pairs[0];
@@ -426,8 +368,7 @@ int StillingerWeberImplementation::Compute(
 
             ier = modelCompute->ProcessD2EDr2Term(d2Eidr2, pRs, pRijConsts, pis,
                                                   pjs);
-            if (ier)
-            {
+            if (ier) {
               LOG_ERROR("process_d2Edr2");
               return ier;
             }
