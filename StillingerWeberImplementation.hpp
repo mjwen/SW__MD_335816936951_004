@@ -113,7 +113,7 @@ class StillingerWeberImplementation
 
 
   // Mutable values that only change when Refresh() executes
-  //   Set in Refresh (via SetReinitMutableValues)
+  //   Set in Refresh (via SetRefreshMutableValues)
   //
   //
   // KIM API: Model Fixed Parameters
@@ -161,17 +161,13 @@ class StillingerWeberImplementation
       KIM::ChargeUnit const requestedChargeUnit,
       KIM::TemperatureUnit const requestedTemperatureUnit,
       KIM::TimeUnit const requestedTimeUnit);
-  int RegisterKIMModelSettings(
-      KIM::ModelDriverCreate * const modelDriverCreate);
-  int RegisterKIMParameters(
-      KIM::ModelDriverCreate * const modelDriverCreate);
-  int RegisterKIMFunctions(
-      KIM::ModelDriverCreate * const modelDriverCreate) const;
+  int RegisterKIMModelSettings(KIM::ModelDriverCreate * const modelDriverCreate);
+  int RegisterKIMParameters(KIM::ModelDriverCreate * const modelDriverCreate);
+  int RegisterKIMFunctions(KIM::ModelDriverCreate * const modelDriverCreate) const;
   //
   // Related to Refresh()
   template<class ModelObj>
-  int SetReinitMutableValues(ModelObj * const modelObj);
-
+  int SetRefreshMutableValues(ModelObj * const modelObj);
   //
   // Related to Compute()
   int SetComputeMutableValues(KIM::ModelCompute const * const modelCompute,
@@ -245,15 +241,13 @@ int StillingerWeberImplementation::Compute(
   }
 
   if (isComputeParticleEnergy == true) {
-    int const cachedNumParticles = cachedNumberOfParticles_;
-    for (int i = 0; i < cachedNumParticles; ++i) {
+    for (int i = 0; i < cachedNumberOfParticles_; ++i) {
       particleEnergy[i] = 0.0;
     }
   }
 
   if (isComputeForces == true) {
-    int const cachedNumParticles = cachedNumberOfParticles_;
-    for (int i = 0; i < cachedNumParticles; ++i) {
+    for (int i = 0; i < cachedNumberOfParticles_; ++i) {
       for (int j = 0; j < DIMENSION; ++j)
         forces[i][j] = 0.0;
     }
@@ -262,63 +256,52 @@ int StillingerWeberImplementation::Compute(
   // calculate contribution from pair function
   //
   // Setup loop over contributing particles
-  int ii = 0;
+  int i = 0;
   int numnei = 0;
   int const * n1atom = 0;
-  double const* const* const  constCutoffsSq2D = cutoffsSq2D_;
 
-  for (ii = 0; ii < cachedNumberOfParticles_; ++ii) {
-    if (particleContributing[ii]) {
-      modelCompute->GetNeighborList(0, ii, &numnei, &n1atom);
-      int const numNei = numnei;
-      int const * const n1Atom = n1atom;
-      int const i = ii;
+  for (i = 0; i < cachedNumberOfParticles_; ++i) {
+    if (particleContributing[i]) {
+      modelCompute->GetNeighborList(0, i, &numnei, &n1atom);
       int const iSpecies = particleSpecies[i];
 
       // Setup loop over neighbors of current particle
-      for (int jj = 0; jj < numNei; ++jj) {
-        int const j = n1Atom[jj];
+      for (int jj = 0; jj < numnei; ++jj) {
+        int const j = n1atom[jj];
         int const jSpecies = particleSpecies[j];
-        double* r_ij;
-        double r_ijValue[DIMENSION];
-        // Compute r_ij
-        r_ij = r_ijValue;
+        double rij[DIMENSION];
+
+        // Compute rij
         for (int k = 0; k < DIMENSION; ++k)
-          r_ij[k] = coordinates[j][k] - coordinates[i][k];
-        double const* const r_ij_const = const_cast<double*>(r_ij);
+          rij[k] = coordinates[j][k] - coordinates[i][k];
 
         // compute distance squared
-        double const rij2 =
-            r_ij_const[0] * r_ij_const[0] +
-            r_ij_const[1] * r_ij_const[1] +
-            r_ij_const[2] * r_ij_const[2];
+        double const rij_sq = rij[0]*rij[0] + rij[1]*rij[1] + rij[2]*rij[2];
 
-        if (rij2 <= constCutoffsSq2D[iSpecies][jSpecies]) {
+        if (rij_sq <= cutoffSq_2D_[iSpecies][jSpecies]) {
           // compute contribution to energy, force, etc.
           double phi = 0.0;
           double dphiByR = 0.0;
           double d2phi = 0.0;
           double dEidrByR = 0.0;
           double d2Eidr2 = 0.0;
-          double const r2iv = 1.0/rij2;
-          double const r6iv = r2iv*r2iv*r2iv;
 
           // Compute pair potential and its derivatives
           if (isComputeProcess_d2Edr2 == true) {
             // Compute d2phi
-            d2phi =
+            d2phi = 0.0;
             d2Eidr2 = 0.5*d2phi;
           }
 
           if ((isComputeProcess_dEdr == true) || (isComputeForces == true)) {
             // Compute dphi
-            dphiByR =
+            dphiByR = 0.0;
             dEidrByR = 0.5*dphiByR;
           }
 
           if ((isComputeEnergy == true) || (isComputeParticleEnergy == true)) {
             // Compute phi
-
+            phi = 0.0;
           }
 
           // Contribution to energy
@@ -335,7 +318,7 @@ int StillingerWeberImplementation::Compute(
           // Contribution to forces
           if (isComputeForces == true) {
             for (int k = 0; k < DIMENSION; ++k) {
-              double const contrib = dEidrByR * r_ij_const[k];
+              double const contrib = dEidrByR * rij[k];
               forces[i][k] += contrib;
               forces[j][k] -= contrib;
             }
@@ -343,9 +326,9 @@ int StillingerWeberImplementation::Compute(
 
           // Call process_dEdr
           if (isComputeProcess_dEdr == true) {
-            double const rij = sqrt(rij2);
-            double const dEidr = dEidrByR*rij;
-            ier = modelCompute->ProcessDEDrTerm(dEidr, rij, r_ij_const, i, j);
+            double const rij_mag = sqrt(rij_sq);
+            double const dEidr = dEidrByR*rij_mag;
+            ier = modelCompute->ProcessDEDrTerm(dEidr, rij_mag, rij, i, j);
             if (ier) {
               LOG_ERROR("process_dEdr");
               return ier;
@@ -354,12 +337,12 @@ int StillingerWeberImplementation::Compute(
 
           // Call process_d2Edr2
           if (isComputeProcess_d2Edr2 == true) {
-            double const rij = sqrt(rij2);
-            double const R_pairs[2] = {rij, rij};
+            double const rij_mag = sqrt(rij_sq);
+            double const R_pairs[2] = {rij_mag, rij_mag};
             double const* const pRs = &R_pairs[0];
             double const Rij_pairs[6]
-                = {r_ij_const[0], r_ij_const[1], r_ij_const[2],
-                   r_ij_const[0], r_ij_const[1], r_ij_const[2]};
+                = {rij[0], rij[1], rij[2],
+                   rij[0], rij[1], rij[2]};
             double const* const pRijConsts = &Rij_pairs[0];
             int const i_pairs[2] = {i, i};
             int const j_pairs[2] = {j, j};

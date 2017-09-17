@@ -66,11 +66,11 @@ StillingerWeberImplementation::StillingerWeberImplementation(
     int * const ier)
 : numberModelSpecies_(0),
   numberUniqueSpeciesPairs_(0),
-  cutoff_(0),
-  sigma_(0),
+  cutoff_(nullptr),
+  sigma_(nullptr),
   influenceDistance_(0.0),
-  cutoffSq_2D_(0),
-  sigma_2D_(0),
+  cutoffSq_2D_(nullptr),
+  sigma_2D_(nullptr),
   cachedNumberOfParticles_(0)
 {
   FILE* parameterFilePointers[MAX_PARAMETER_FILES];
@@ -93,7 +93,7 @@ StillingerWeberImplementation::StillingerWeberImplementation(
                       requestedTimeUnit);
   if (*ier) return;
 
-  *ier = SetReinitMutableValues(modelDriverCreate);
+  *ier = SetRefreshMutableValues(modelDriverCreate);
   if (*ier) return;
 
   *ier = RegisterKIMModelSettings(modelDriverCreate);
@@ -127,7 +127,7 @@ int StillingerWeberImplementation::Refresh(
 {
   int ier;
 
-  ier = SetReinitMutableValues(modelRefresh);
+  ier = SetRefreshMutableValues(modelRefresh);
   if (ier) return ier;
 
   // nothing else to do for this case
@@ -243,8 +243,8 @@ int StillingerWeberImplementation::ProcessParameterFiles(
 
   getNextDataLine(parameterFilePointers[0], nextLinePtr,
                   MAXLINE, &endOfFileFlag);
-  ier = sscanf(nextLine, "%d %d", &N, &shift_);
-  if (ier != 2) {
+  ier = sscanf(nextLine, "%d", &N);
+  if (ier != 1) {
     sprintf(nextLine, "unable to read first line of the parameter file");
     ier = true;
     LOG_ERROR(nextLine);
@@ -440,24 +440,6 @@ int StillingerWeberImplementation::ConvertUnits(
       sigma_[i] *= convertLength;  // convert to active units
     }
   }
-  // changing units of epsilons
-  double convertEnergy = 1.0;
-  ier = modelDriverCreate->ConvertUnit(
-      fromLength, fromEnergy, fromCharge, fromTemperature, fromTime,
-      requestedLengthUnit, requestedEnergyUnit, requestedChargeUnit,
-      requestedTemperatureUnit, requestedTimeUnit,
-      0.0, 1.0, 0.0, 0.0, 0.0,
-      &convertEnergy);
-  if (ier) {
-    LOG_ERROR("Unable to convert energy unit");
-    return ier;
-  }
-
-  if (convertEnergy != ONE) {
-    for (int i = 0; i < numberUniqueSpeciesPairs_; ++i) {
-      epsilons_[i] *= convertEnergy;  // convert to active units
-    }
-  }
 
   // register units
   ier = modelDriverCreate->SetUnits(
@@ -538,7 +520,7 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
 {
   int error;
 
-  // register the Destroy(), Fresh(), and Compute() functions
+  // register the Destroy(), Refresh(), and Compute() functions
   error = modelDriverCreate->SetDestroyPointer(
       KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Destroy))
       || modelDriverCreate->SetRefreshPointer(
@@ -551,7 +533,7 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
 
 //******************************************************************************
 template<class ModelObj>
-int StillingerWeberImplementation::SetReinitMutableValues(
+int StillingerWeberImplementation::SetRefreshMutableValues(
     ModelObj * const modelObj)
 { // use (possibly) new values of free parameters to compute other quantities
   int ier;
@@ -561,7 +543,7 @@ int StillingerWeberImplementation::SetReinitMutableValues(
     for (int j = 0; j <= i ; ++j) {
       int const index = j*numberModelSpecies_ + i - (j*j + j)/2;
       cutoffSq_2D_[i][j] = cutoffSq_2D_[j][i] = cutoff_[index]*cutoff_[index];
-      sigma_2D_[i][j] = sigma_2D_[j][i] = sigma_[index]*simga_[index];
+      sigma_2D_[i][j] = sigma_2D_[j][i] = sigma_[index]*sigma_[index];
     }
   }
 
@@ -663,7 +645,7 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 }
 
 //******************************************************************************
-// Assume that the particle interge codes starts from 0
+// Assume that the particle species interge code starts from 0
 int StillingerWeberImplementation::CheckParticleSpecies(
     KIM::ModelCompute const * const modelCompute,
     int const* const particleSpecies)
@@ -701,8 +683,7 @@ int StillingerWeberImplementation::GetComputeIndex(
   int index = 0;
 
   // processdE
-  index += (int(isComputeProcess_dEdr))
-      * processd2E * energy * force * particleEnergy;
+  index += (int(isComputeProcess_dEdr)) * processd2E * energy * force * particleEnergy;
 
   // processd2E
   index += (int(isComputeProcess_d2Edr2)) * energy * force * particleEnergy;
@@ -747,9 +728,9 @@ void AllocateAndInitialize2DArray(double**& arrayPtr, int const extentZero,
 //******************************************************************************
 void Deallocate2DArray(double**& arrayPtr)
 { // deallocate memory
-  if (arrayPtr != 0) delete [] arrayPtr[0];
+  if (arrayPtr != nullptr) delete [] arrayPtr[0];
   delete [] arrayPtr;
 
   // nullify pointer
-  arrayPtr = 0;
+  arrayPtr = nullptr;
 }
