@@ -109,7 +109,14 @@ class StillingerWeberImplementation
   //   Memory deallocated in destructor
   //   Data set in ReadParameterFile routines OR by KIM Simulator
   double* cutoff_;
+  double* A_;
+  double* B_;
+  double* p_;
+  double* q_;
   double* sigma_;
+  double* lambda_;
+  double* gamma_;
+  double* costheta0_;
 
 
   // Mutable values that only change when Refresh() executes
@@ -125,7 +132,14 @@ class StillingerWeberImplementation
   // StillingerWeberImplementation: values
   double influenceDistance_;
   double** cutoffSq_2D_;
+  double** A_2D_;
+  double** B_2D_;
+  double** p_2D_;
+  double** q_2D_;
   double** sigma_2D_;
+  double** lambda_2D_;
+  double** gamma_2D_;
+  double** costheta0_2D_;
 
 
   // Mutable values that can change with each call to Refresh() and Compute()
@@ -201,6 +215,24 @@ class StillingerWeberImplementation
               double* const energy,
               VectorOfSizeDIM* const forces,
               double* const particleEnergy);
+
+
+  // Stillinger-Weber functions
+  void CalcPhiTwo(int ispec, int jspec, double r, double& phi);
+  void CalcPhiDphiTwo(int ispec, int jspec, double r, double& phi, double& dphi);
+  void CalcPhiD2phiTwo(int ispec, int jspec, double r,
+                       double& phi, double& dphi, double& d2phi);
+  void CalcPhiThree(int ispec, int jspec, int kspec,
+                    double rij, double rik, double rjk,
+                    double& phi);
+  void CalcPhiDphiThree(int ispec, int jspec, int kspec,
+                        double rij, double rik, double rjk,
+                        double& phi, double *const dphi);
+  void CalcPhiD2phiThree(int ispec, int jspec, int kspec,
+                         double rij, double rik, double rjk,
+                         double& phi, double *const dphi, double *const d2phi);
+
+
 };
 
 //==============================================================================
@@ -269,66 +301,61 @@ int StillingerWeberImplementation::Compute(
       for (int jj = 0; jj < numnei; ++jj) {
         int const j = n1atom[jj];
         int const jSpecies = particleSpecies[j];
-        double rij[DIMENSION];
 
         // Compute rij
-        for (int k = 0; k < DIMENSION; ++k)
-          rij[k] = coordinates[j][k] - coordinates[i][k];
+        double rij[DIMENSION];
+        for (int dim = 0; dim < DIMENSION; ++dim)
+          rij[dim] = coordinates[j][dim] - coordinates[i][dim];
 
         // compute distance squared
         double const rij_sq = rij[0]*rij[0] + rij[1]*rij[1] + rij[2]*rij[2];
+        double const rij_mag = sqrt(rij_sq);
 
         if (rij_sq <= cutoffSq_2D_[iSpecies][jSpecies]) {
-          // compute contribution to energy, force, etc.
-          double phi = 0.0;
-          double dphiByR = 0.0;
-          double d2phi = 0.0;
-          double dEidrByR = 0.0;
-          double d2Eidr2 = 0.0;
 
-          // Compute pair potential and its derivatives
+          // two-body contributions
+          double phi_two = 0.0;
+          double dphi_two = 0.0;
+          double d2phi_two = 0.0;
+          double dEidr_two = 0.0;
+          double d2Eidr2_two = 0.0;
+
+          // Compute two body potenitals and its derivatives
           if (isComputeProcess_d2Edr2 == true) {
-            // Compute d2phi
-            d2phi = 0.0;
-            d2Eidr2 = 0.5*d2phi;
+            CalcPhiD2phiTwo(iSpecies, jSpecies, rij_mag, phi_two, dphi_two, d2phi_two);
+            dEidr_two = 0.5*dphi_two;
+            d2Eidr2_two = 0.5*d2phi_two;
           }
-
-          if ((isComputeProcess_dEdr == true) || (isComputeForces == true)) {
-            // Compute dphi
-            dphiByR = 0.0;
-            dEidrByR = 0.5*dphiByR;
+          else if ((isComputeProcess_dEdr == true) || (isComputeForces == true)) {
+            CalcPhiDphiTwo(iSpecies, jSpecies, rij_mag, phi_two, dphi_two);
+            dEidr_two = 0.5*dphi_two;
           }
-
-          if ((isComputeEnergy == true) || (isComputeParticleEnergy == true)) {
-            // Compute phi
-            phi = 0.0;
+          else if ((isComputeEnergy == true) || (isComputeParticleEnergy == true)) {
+            CalcPhiTwo(iSpecies, jSpecies, rij_mag, phi_two);
           }
 
           // Contribution to energy
           if (isComputeEnergy == true) {
-            *energy += 0.5*phi;
+            *energy += 0.5*phi_two;
           }
 
           // Contribution to particleEnergy
           if (isComputeParticleEnergy == true) {
-            double const halfPhi = 0.5*phi;
-            particleEnergy[i] += halfPhi;
+            particleEnergy[i] += 0.5*phi_two;
           }
 
           // Contribution to forces
           if (isComputeForces == true) {
-            for (int k = 0; k < DIMENSION; ++k) {
-              double const contrib = dEidrByR * rij[k];
-              forces[i][k] += contrib;
-              forces[j][k] -= contrib;
+            for (int dim = 0; dim < DIMENSION; ++dim) {
+              double const contrib = dEidr_two * rij[dim] / rij_mag;
+              forces[i][dim] += contrib;
+              forces[j][dim] -= contrib;
             }
           }
 
           // Call process_dEdr
           if (isComputeProcess_dEdr == true) {
-            double const rij_mag = sqrt(rij_sq);
-            double const dEidr = dEidrByR*rij_mag;
-            ier = modelCompute->ProcessDEDrTerm(dEidr, rij_mag, rij, i, j);
+            ier = modelCompute->ProcessDEDrTerm(dEidr_two, rij_mag, rij, i, j);
             if (ier) {
               LOG_ERROR("process_dEdr");
               return ier;
@@ -337,7 +364,6 @@ int StillingerWeberImplementation::Compute(
 
           // Call process_d2Edr2
           if (isComputeProcess_d2Edr2 == true) {
-            double const rij_mag = sqrt(rij_sq);
             double const R_pairs[2] = {rij_mag, rij_mag};
             double const* const pRs = &R_pairs[0];
             double const Rij_pairs[6]
@@ -349,13 +375,276 @@ int StillingerWeberImplementation::Compute(
             int const* const pis = &i_pairs[0];
             int const* const pjs = &j_pairs[0];
 
-            ier = modelCompute->ProcessD2EDr2Term(d2Eidr2, pRs, pRijConsts, pis,
-                                                  pjs);
+            ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_two, pRs,
+                pRijConsts, pis, pjs);
             if (ier) {
               LOG_ERROR("process_d2Edr2");
               return ier;
             }
           }
+
+
+          // three-body contribution
+          for (int kk = jj+1; kk < numnei; ++kk)
+          {
+            int const k = n1atom[kk];
+            int const kSpecies = particleSpecies[k];
+
+            // Compute rik and rjk vector
+            double rik[DIMENSION];
+            double rjk[DIMENSION];
+            for (int dim = 0; dim < DIMENSION; ++dim) {
+              rik[dim] = coordinates[k][dim] - coordinates[i][dim];
+              rjk[dim] = coordinates[k][dim] - coordinates[j][dim];
+            }
+
+            // compute distance squared and distance
+            double const rik_sq = rik[0]*rik[0] + rik[1]*rik[1] + rik[2]*rik[2];
+            double const rjk_sq = rjk[0]*rjk[0] + rjk[1]*rjk[1] + rjk[2]*rjk[2];
+            double const rik_mag = sqrt(rik_sq);
+            double const rjk_mag = sqrt(rjk_sq);
+
+
+            /* compute energy and force */
+            if (rik_sq <= cutoffSq_2D_[iSpecies][kSpecies]) {
+
+              // three-body contributions
+              double phi_three;
+              double dphi_three[3];
+              double d2phi_three[6];
+              double dEidr_three[3];
+              double d2Eidr2_three[6];
+
+              /* compute three-body potential and its derivatives */
+              if (isComputeProcess_d2Edr2 == true) {
+                CalcPhiD2phiThree(iSpecies, jSpecies, kSpecies,
+                    rij_mag, rik_mag, rjk_mag, phi_three, dphi_three, d2phi_three);
+
+                dEidr_three[0]  = dphi_three[0];
+                dEidr_three[1]  = dphi_three[1];
+                dEidr_three[2]  = dphi_three[2];
+
+                d2Eidr2_three[0] = d2phi_three[0];
+                d2Eidr2_three[1] = d2phi_three[1];
+                d2Eidr2_three[2] = d2phi_three[2];
+                d2Eidr2_three[3] = d2phi_three[3];
+                d2Eidr2_three[4] = d2phi_three[4];
+                d2Eidr2_three[5] = d2phi_three[5];
+              }
+              else if ((isComputeProcess_dEdr == true) || (isComputeForces == true)) {
+                CalcPhiDphiThree(iSpecies, jSpecies, kSpecies,
+                    rij_mag, rik_mag, rjk_mag, phi_three, dphi_three);
+
+                dEidr_three[0]  =  dphi_three[0];
+                dEidr_three[1]  =  dphi_three[1];
+                dEidr_three[2]  =  dphi_three[2];
+              }
+              else if ((isComputeEnergy == true) || (isComputeParticleEnergy == true)) {
+                CalcPhiThree(iSpecies, jSpecies, kSpecies,
+                    rij_mag, rik_mag, rjk_mag, phi_three);
+              }
+
+              // Contribution to energy
+              if (isComputeEnergy == true) {
+                *energy += phi_three;
+              }
+
+              // Contribution to particleEnergy
+              if (isComputeParticleEnergy == true) {
+                particleEnergy[i] += phi_three;
+              }
+
+              // Contribution to forces
+              if (isComputeForces == true) {
+                for (int dim = 0; dim < DIMENSION; ++dim) {
+                  double const contrib0 = dEidr_three[0] * rij[dim] / rij_mag;
+                  double const contrib1 = dEidr_three[1] * rik[dim] / rik_mag;
+                  double const contrib2 = dEidr_three[2] * rjk[dim] / rjk_mag;
+                  forces[i][dim] +=  contrib0 + contrib1;
+                  forces[j][dim] += -contrib0 + contrib2;
+                  forces[k][dim] += -contrib2 - contrib1;
+                }
+              }
+
+              // Call process_dEdr
+              if (isComputeProcess_dEdr == true) {
+                ier = modelCompute->ProcessDEDrTerm(dEidr_three[0], rij_mag, rij, i, j)
+                   || modelCompute->ProcessDEDrTerm(dEidr_three[1], rik_mag, rik, i, k)
+                   || modelCompute->ProcessDEDrTerm(dEidr_three[2], rjk_mag, rjk, j, k);
+                if (ier) {
+                  LOG_ERROR("process_dEdr");
+                  return ier;
+                }
+              }
+
+              // Call process_d2Edr2
+              if (isComputeProcess_d2Edr2 == true) {
+                double R_pairs[2];
+                double Rij_pairs[6];
+                int i_pairs[2];
+                int j_pairs[2];
+                double * const pRs = &R_pairs[0];
+                double * const pRijConsts = &Rij_pairs[0];
+                int * const pis = &i_pairs[0];
+                int * const pjs = &j_pairs[0];
+
+                R_pairs[0] = R_pairs[1] = rij_mag;
+                Rij_pairs[0] = Rij_pairs[3] = rij[0];
+                Rij_pairs[1] = Rij_pairs[4] = rij[1];
+                Rij_pairs[2] = Rij_pairs[5] = rij[2];
+                i_pairs[0] = i_pairs[1] = i;
+                j_pairs[0] = j_pairs[1] = j;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[0], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+                R_pairs[0] = R_pairs[1] = rik_mag;
+                Rij_pairs[0] = Rij_pairs[3] = rik[0];
+                Rij_pairs[1] = Rij_pairs[4] = rik[1];
+                Rij_pairs[2] = Rij_pairs[5] = rik[2];
+                i_pairs[0] = i_pairs[1] = i;
+                j_pairs[0] = j_pairs[1] = k;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[1], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+                R_pairs[0] = R_pairs[1] = rjk_mag;
+                Rij_pairs[0] = Rij_pairs[3] = rjk[0];
+                Rij_pairs[1] = Rij_pairs[4] = rjk[1];
+                Rij_pairs[2] = Rij_pairs[5] = rjk[2];
+                i_pairs[0] = i_pairs[1] = j;
+                j_pairs[0] = j_pairs[1] = k;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[2], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+                R_pairs[0] = rij_mag;
+                R_pairs[1] = rik_mag;
+                Rij_pairs[0] = rij[0];
+                Rij_pairs[1] = rij[1];
+                Rij_pairs[2] = rij[2];
+                Rij_pairs[3] = rik[0];
+                Rij_pairs[4] = rik[1];
+                Rij_pairs[5] = rik[2];
+                i_pairs[0] = i;
+                j_pairs[0] = j;
+                i_pairs[1] = i;
+                j_pairs[1] = k;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[3], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+                R_pairs[0] = rik_mag;
+                R_pairs[1] = rij_mag;
+                Rij_pairs[0] = rik[0];
+                Rij_pairs[1] = rik[1];
+                Rij_pairs[2] = rik[2];
+                Rij_pairs[3] = rij[0];
+                Rij_pairs[4] = rij[1];
+                Rij_pairs[5] = rij[2];
+                i_pairs[0] = i;
+                j_pairs[0] = k;
+                i_pairs[1] = i;
+                j_pairs[1] = j;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[3], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+                R_pairs[0] = rij_mag;
+                R_pairs[1] = rjk_mag;
+                Rij_pairs[0] = rij[0];
+                Rij_pairs[1] = rij[1];
+                Rij_pairs[2] = rij[2];
+                Rij_pairs[3] = rjk[0];
+                Rij_pairs[4] = rjk[1];
+                Rij_pairs[5] = rjk[2];
+                i_pairs[0] = i;
+                j_pairs[0] = j;
+                i_pairs[1] = j;
+                j_pairs[1] = k;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[4], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+
+                R_pairs[0] = rjk_mag;
+                R_pairs[1] = rij_mag;
+                Rij_pairs[0] = rjk[0];
+                Rij_pairs[1] = rjk[1];
+                Rij_pairs[2] = rjk[2];
+                Rij_pairs[3] = rij[0];
+                Rij_pairs[4] = rij[1];
+                Rij_pairs[5] = rij[2];
+                i_pairs[0] = j;
+                j_pairs[0] = k;
+                i_pairs[1] = i;
+                j_pairs[1] = j;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[4], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+                R_pairs[0] = rik_mag;
+                R_pairs[1] = rjk_mag;
+                Rij_pairs[0] = rik[0];
+                Rij_pairs[1] = rik[1];
+                Rij_pairs[2] = rik[2];
+                Rij_pairs[3] = rjk[0];
+                Rij_pairs[4] = rjk[1];
+                Rij_pairs[5] = rjk[2];
+                i_pairs[0] = i;
+                j_pairs[0] = k;
+                i_pairs[1] = j;
+                j_pairs[1] = k;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[5], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+
+                R_pairs[0] = rjk_mag;
+                R_pairs[1] = rik_mag;
+                Rij_pairs[0] = rjk[0];
+                Rij_pairs[1] = rjk[1];
+                Rij_pairs[2] = rjk[2];
+                Rij_pairs[3] = rik[0];
+                Rij_pairs[4] = rik[1];
+                Rij_pairs[5] = rik[2];
+                i_pairs[0] = j;
+                j_pairs[0] = k;
+                i_pairs[1] = i;
+                j_pairs[1] = k;
+                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[5], pRs,
+                    pRijConsts, pis, pjs);
+                if (ier) {
+                  LOG_ERROR("process_d2Edr2");
+                  return ier;
+                }
+              }  // Process_D2Edr2
+
+            }  // if particleContributing
+          }  // if particles i and k interact
         }  // if particleContributing
       }  // if particles i and j interact
     }  // end of first neighbor loop

@@ -67,10 +67,24 @@ StillingerWeberImplementation::StillingerWeberImplementation(
 : numberModelSpecies_(0),
   numberUniqueSpeciesPairs_(0),
   cutoff_(nullptr),
+  A_(nullptr),
+  B_(nullptr),
+  p_(nullptr),
+  q_(nullptr),
   sigma_(nullptr),
+  lambda_(nullptr),
+  gamma_(nullptr),
+  costheta0_(nullptr),
   influenceDistance_(0.0),
   cutoffSq_2D_(nullptr),
+  A_2D_(nullptr),
+  B_2D_(nullptr),
+  p_2D_(nullptr),
+  q_2D_(nullptr),
   sigma_2D_(nullptr),
+  lambda_2D_(nullptr),
+  gamma_2D_(nullptr),
+  costheta0_2D_(nullptr),
   cachedNumberOfParticles_(0)
 {
   FILE* parameterFilePointers[MAX_PARAMETER_FILES];
@@ -115,10 +129,24 @@ StillingerWeberImplementation::~StillingerWeberImplementation()
 { // note: it is ok to delete a null pointer and we have ensured that
   // everything is initialized to null
 
-  delete [] cutoff_;
-  Deallocate2DArray(cutoffSq_2D_);
+  delete [] A_;
+  delete [] B_;
+  delete [] p_;
+  delete [] q_;
   delete [] sigma_;
+  delete [] lambda_;
+  delete [] gamma_;
+  delete [] costheta0_;
+  delete [] cutoff_;
+  Deallocate2DArray(A_2D_);
+  Deallocate2DArray(B_2D_);
+  Deallocate2DArray(p_2D_);
+  Deallocate2DArray(q_2D_);
   Deallocate2DArray(sigma_2D_);
+  Deallocate2DArray(lambda_2D_);
+  Deallocate2DArray(gamma_2D_);
+  Deallocate2DArray(costheta0_2D_);
+  Deallocate2DArray(cutoffSq_2D_);
 }
 
 //******************************************************************************
@@ -236,13 +264,12 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   int N, ier;
   int endOfFileFlag = 0;
   char spec1[MAXLINE], spec2[MAXLINE], nextLine[MAXLINE];
-  char *nextLinePtr;
-  int iIndex, jIndex , indx, iiIndex, jjIndex;
-  double nextCutoff, nextEpsilon, nextSigma;
-  nextLinePtr = nextLine;
+  int iIndex, jIndex , indx;
+  double next_A, next_B, next_sigma, next_lambda, next_gamma;
+  double next_costheta0, next_cutoff;
+  int next_p, next_q;
 
-  getNextDataLine(parameterFilePointers[0], nextLinePtr,
-                  MAXLINE, &endOfFileFlag);
+  getNextDataLine(parameterFilePointers[0], nextLine, MAXLINE, &endOfFileFlag);
   ier = sscanf(nextLine, "%d", &N);
   if (ier != 1) {
     sprintf(nextLine, "unable to read first line of the parameter file");
@@ -255,25 +282,22 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   numberUniqueSpeciesPairs_ = ((numberModelSpecies_+1)*numberModelSpecies_)/2;
   AllocateFreeParameterMemory();
 
-  // set all values in the arrays to -1 for mixing later
+  // set all values of p_ to -1 for later check that we have read all params
   for (int i = 0; i < ((N+1)*N/2); i++) {
-    cutoff_[i]  = -1;
-    sigma_[i] = -1;
+    p_[i]  = -1;
   }
-
 
   // keep track of known species
   std::unordered_map<KIM::SpeciesName const, int> modelSpeciesMap;
-  std::vector<KIM::SpeciesName> speciesNameVector;
-  int index = 0;
+  int index = 0;   // species code integer code starting from 0
 
   // Read and process data lines
-  getNextDataLine(parameterFilePointers[0], nextLinePtr,
-                  MAXLINE, &endOfFileFlag);
+  getNextDataLine(parameterFilePointers[0], nextLine, MAXLINE, &endOfFileFlag);
   while (endOfFileFlag == 0)
   {
-    ier = sscanf(nextLine, "%s  %s %lg %lg %lg",
-                 spec1, spec2, &nextCutoff, &nextEpsilon, &nextSigma);
+    ier = sscanf(nextLine, "%s %s %lg %lg %d %d %lg %lg %lg %lg %lg",
+                 spec1, spec2, &next_A, &next_B, &next_p, &next_q, &next_sigma,
+                 &next_lambda, &next_gamma, &next_costheta0, &next_cutoff);
     if (ier != 5) {
       sprintf(nextLine, "error reading lines of the parameter file");
       LOG_ERROR(nextLine);
@@ -289,7 +313,6 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     if (iIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName1] = index;
       modelSpeciesCodeList_.push_back(index);
-      speciesNameVector.push_back(specName1);
 
       ier = modelDriverCreate->SetSpeciesCode(specName1, index);
       if (ier) return ier;
@@ -304,7 +327,6 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     if (jIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName2] = index;
       modelSpeciesCodeList_.push_back(index);
-      speciesNameVector.push_back(specName2);
 
       ier = modelDriverCreate->SetSpeciesCode(specName2, index);
       if (ier) return ier;
@@ -321,37 +343,26 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     else {
       indx = iIndex*N + jIndex - (iIndex*iIndex + iIndex)/2;
     }
-    cutoff_[indx] = nextCutoff;
-    sigma_[indx] = nextSigma;
+    A_[indx] = next_A;
+    B_[indx] = next_B;
+    p_[indx] = next_p;
+    q_[indx] = next_q;
+    sigma_[indx] = next_sigma;
+    lambda_[indx] = next_lambda;
+    gamma_[indx] = next_gamma;
+    costheta0_[indx] = next_costheta0;
+    cutoff_[indx] = next_cutoff;
 
-    getNextDataLine(parameterFilePointers[0], nextLinePtr,
-                    MAXLINE, &endOfFileFlag);
+    getNextDataLine(parameterFilePointers[0], nextLine, MAXLINE, &endOfFileFlag);
   }
 
-  // check that we got all like - like pairs
-  sprintf(nextLine, "There are not values for like-like pairs of:");
-  for (int i = 0; i < N; i++) {
-    if (cutoff_[(i*N + i - (i*i + i)/2)] == -1) {
-      strcat(nextLine, "  ");
-      strcat(nextLine, (speciesNameVector[i].String()).c_str());
-      ier = -1;
-    }
-  }
-  if (ier == -1) {
-    LOG_ERROR(nextLine);
-    return true;
-  }
-
-  // Perform Mixing if nessisary
-  for (int jIndex = 0; jIndex < N; jIndex++) {
-    jjIndex = (jIndex*N + jIndex - (jIndex*jIndex + jIndex)/2);
-    for (int iIndex = (jIndex+1) ; iIndex < N; iIndex++) {
-      indx = jIndex*N + iIndex - (jIndex*jIndex + jIndex)/2;
-      if (cutoff_[indx] == -1) {
-        iiIndex = (iIndex*N + iIndex - (iIndex*iIndex + iIndex)/2);
-        sigma_[indx] = (sigma_[iiIndex] + sigma_[jjIndex])/2.0;
-        cutoff_[indx] = (cutoff_[iiIndex] + cutoff_[jjIndex])/2.0;
-      }
+  // check we have read all parameters
+  for (int i = 0; i < ((N+1)*N/2); i++) {
+    if (p_[i] == -1) {
+      sprintf(nextLine, "error: not enough parameter data.\n");
+      sprintf(nextLine, "%d species requires %d data lines.", N, (N+1)*N/2);
+      LOG_ERROR(nextLine);
+      return true;
     }
   }
 
@@ -395,10 +406,25 @@ void StillingerWeberImplementation::CloseParameterFiles(
 void StillingerWeberImplementation::AllocateFreeParameterMemory()
 { // allocate memory for data
   cutoff_ = new double[numberUniqueSpeciesPairs_];
-  AllocateAndInitialize2DArray(cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
-
   sigma_ = new double[numberUniqueSpeciesPairs_];
+  A_ = new double[numberUniqueSpeciesPairs_];
+  B_ = new double[numberUniqueSpeciesPairs_];
+  p_ = new double[numberUniqueSpeciesPairs_];
+  q_ = new double[numberUniqueSpeciesPairs_];
+  sigma_ = new double[numberUniqueSpeciesPairs_];
+  lambda_ = new double[numberUniqueSpeciesPairs_];
+  gamma_ = new double[numberUniqueSpeciesPairs_];
+  costheta0_ = new double[numberUniqueSpeciesPairs_];
+
+  AllocateAndInitialize2DArray(cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray(A_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray(B_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray(p_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray(q_2D_, numberModelSpecies_, numberModelSpecies_);
   AllocateAndInitialize2DArray(sigma_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray(lambda_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray(gamma_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray(costheta0_2D_, numberModelSpecies_, numberModelSpecies_);
 
 }
 
@@ -421,7 +447,7 @@ int StillingerWeberImplementation::ConvertUnits(
   KIM::TemperatureUnit fromTemperature = KIM::TEMPERATURE_UNIT::K;
   KIM::TimeUnit fromTime = KIM::TIME_UNIT::ps;
 
-  // changing units of cutoff and sigma
+  // changing units of sigma, gamma, and cutoff
   double convertLength = 1.0;
   ier = modelDriverCreate->ConvertUnit(
       fromLength, fromEnergy, fromCharge, fromTemperature, fromTime,
@@ -433,11 +459,32 @@ int StillingerWeberImplementation::ConvertUnits(
     LOG_ERROR("Unable to convert length unit");
     return ier;
   }
-
+  // convert to active units
   if (convertLength != ONE) {
     for (int i = 0; i < numberUniqueSpeciesPairs_; ++i) {
-      cutoff_[i] *= convertLength;  // convert to active units
-      sigma_[i] *= convertLength;  // convert to active units
+      sigma_[i] *= convertLength;
+      gamma_[i] *= convertLength;
+      cutoff_[i] *= convertLength;
+    }
+  }
+
+  // changing units of A and lambda
+  double convertEnergy = 1.0;
+  ier = modelDriverCreate->ConvertUnit(
+      fromLength, fromEnergy, fromCharge, fromTemperature, fromTime,
+      requestedLengthUnit, requestedEnergyUnit, requestedChargeUnit,
+      requestedTemperatureUnit, requestedTimeUnit,
+      0.0, 1.0, 0.0, 0.0, 0.0,
+      &convertEnergy);
+  if (ier) {
+    LOG_ERROR("Unable to convert energy unit");
+    return ier;
+  }
+  // convert to active units
+  if (convertLength != ONE) {
+    for (int i = 0; i < numberUniqueSpeciesPairs_; ++i) {
+      A_[i] *= convertEnergy;
+      lambda_[i] *= convertEnergy;
     }
   }
 
@@ -463,8 +510,7 @@ int StillingerWeberImplementation::RegisterKIMModelSettings(
     KIM::ModelDriverCreate * const modelDriverCreate)
 {
   // register numbering
-  int error = modelDriverCreate->SetModelNumbering(
-      KIM::NUMBERING::zeroBased);
+  int error = modelDriverCreate->SetModelNumbering(KIM::NUMBERING::zeroBased);
 
   // register arguments
   LOG_INFORMATION("Register argument supportStatus");
@@ -494,17 +540,17 @@ int StillingerWeberImplementation::RegisterKIMParameters(
   int ier = false;
 
   // publish parameters (order is important)
-  ier = modelDriverCreate->SetParameterPointer(
-      numberUniqueSpeciesPairs_, cutoff_, "cutoff");
+  ier = modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, A_, "A")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, B_, "B")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, p_, "p")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, q_, "q")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, sigma_, "sigma")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, lambda_, "lambda")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, gamma_, "gamma")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, costheta0_, "costheta0")
+     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, cutoff_, "cutoff");
   if (ier) {
-    LOG_ERROR("set_parameter cutoff");
-    return ier;
-  }
-
-  ier = modelDriverCreate->SetParameterPointer(
-      numberUniqueSpeciesPairs_, sigma_, "sigma");
-  if (ier) {
-    LOG_ERROR("set_parameter sigma");
+    LOG_ERROR("set_parameters");
     return ier;
   }
 
@@ -522,7 +568,7 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
 
   // register the Destroy(), Refresh(), and Compute() functions
   error = modelDriverCreate->SetDestroyPointer(
-      KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Destroy))
+          KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Destroy))
       || modelDriverCreate->SetRefreshPointer(
           KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Refresh))
       || modelDriverCreate->SetComputePointer(
@@ -538,12 +584,19 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
 { // use (possibly) new values of free parameters to compute other quantities
   int ier;
 
-  // update cutoffSq_2D
+  // update parameters
   for (int i = 0; i < numberModelSpecies_; ++i) {
     for (int j = 0; j <= i ; ++j) {
       int const index = j*numberModelSpecies_ + i - (j*j + j)/2;
-      cutoffSq_2D_[i][j] = cutoffSq_2D_[j][i] = cutoff_[index]*cutoff_[index];
-      sigma_2D_[i][j] = sigma_2D_[j][i] = sigma_[index]*sigma_[index];
+      A_2D_[i][j] = A_2D_[j][i] = A_[index];
+      B_2D_[i][j] = B_2D_[j][i] = B_[index];
+      p_2D_[i][j] = p_2D_[j][i] = p_[index];
+      q_2D_[i][j] = q_2D_[j][i] = q_[index];
+      sigma_2D_[i][j] = sigma_2D_[j][i] = sigma_[index];
+      lambda_2D_[i][j] = lambda_2D_[j][i] = lambda_[index];
+      gamma_2D_[i][j] = gamma_2D_[j][i] = gamma_[index];
+      costheta0_2D_[i][j] = costheta0_2D_[j][i] = costheta0_[index];
+      cutoffSq_2D_[i][j] = cutoffSq_2D_[j][i] = cutoff_[index] * cutoff_[index];
     }
   }
 
@@ -700,6 +753,259 @@ int StillingerWeberImplementation::GetComputeIndex(
 
   return index;
 }
+
+
+//==============================================================================
+//
+// Stillinger-Weber functions
+//
+//==============================================================================
+void StillingerWeberImplementation::CalcPhiTwo(int ispec, int jspec,
+    double r, double& phi)
+{
+  // get parameters
+  double const A = A_2D_[ispec][jspec];
+  double const B = B_2D_[ispec][jspec];
+  int const p = p_2D_[ispec][jspec];
+  int const q = q_2D_[ispec][jspec];
+  double const sigma = sigma_2D_[ispec][jspec];
+  double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
+
+  double r_cap = r/sigma;
+
+  if (r >= cutoff) {
+    phi = 0.0;
+  }
+  else {
+    phi = A * (B*pow(r_cap,-p) - pow(r_cap,-q)) * exp(sigma/(r - cutoff));
+  }
+
+}
+
+
+void StillingerWeberImplementation::CalcPhiDphiTwo(int ispec, int jspec,
+    double r, double& phi, double& dphi)
+{
+  // get parameters
+  double const A = A_2D_[ispec][jspec];
+  double const B = B_2D_[ispec][jspec];
+  int const p = p_2D_[ispec][jspec];
+  int const q = q_2D_[ispec][jspec];
+  double const sigma = sigma_2D_[ispec][jspec];
+  double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
+
+  double r_cap = r/sigma;
+
+  if (r >= cutoff) {
+    phi = 0.0;
+    dphi = 0.0;
+  }
+  else {
+    phi = A * (B*pow(r_cap,-p) - pow(r_cap,-q)) * exp(sigma/(r - cutoff));
+
+    dphi = (q*pow(r_cap,-(q+1)) - p*B*pow(r_cap,-(p+1)))
+        - (B*pow(r_cap,-p) - pow(r_cap,-q)) * pow((r - cutoff)/sigma, -2);
+    dphi *= (1/sigma) * A * exp(sigma/(r - cutoff));
+  }
+
+}
+
+
+void StillingerWeberImplementation::CalcPhiD2phiTwo(int ispec, int jspec,
+    double r, double& phi, double& dphi, double& d2phi)
+{
+  // get parameters
+  double const A = A_2D_[ispec][jspec];
+  double const B = B_2D_[ispec][jspec];
+  int const p = p_2D_[ispec][jspec];
+  int const q = q_2D_[ispec][jspec];
+  double const sigma = sigma_2D_[ispec][jspec];
+  double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
+
+  double r_cap = r/sigma;
+
+  if (r >= cutoff) {
+    phi = 0.0;
+    dphi = 0.0;
+    d2phi = 0.0;
+  }
+  else {
+    phi = A * (B*pow(r_cap,-p) - pow(r_cap,-q)) * exp(sigma/(r - cutoff));
+
+    dphi = (q*pow(r_cap,-(q+1)) - p*B*pow(r_cap,-(p+1)))
+        - (B*pow(r_cap,-p) - pow(r_cap,-q)) * pow((r - cutoff)/sigma, -2);
+    dphi *= (1/sigma) * A * exp(sigma/(r - cutoff));
+
+    d2phi = (B*pow(r_cap,-p) - pow(r_cap,-q))
+        * (pow((r - cutoff)/sigma, -4) + 2*pow((r - cutoff)/sigma, -3))
+        + 2*(p*B*pow(r_cap,-(p+1)) - q*pow(r_cap,-(q+1)))
+        * pow((r - cutoff)/sigma, -2)
+        + (p*(p+1)*B*pow(r_cap, -(p+2)) - q*(q+1)*pow(r_cap, -(q+2)));
+    d2phi *= (1 / (sigma*sigma)) * A * exp(sigma/(r-cutoff));
+  }
+
+}
+
+
+void StillingerWeberImplementation::CalcPhiThree(int ispec, int jspec, int kspec,
+    double rij, double rik, double rjk, double& phi)
+{
+  // get parameters
+  double const lambda_ij = lambda_2D_[ispec][jspec];
+  double const lambda_ik = lambda_2D_[ispec][kspec];
+  double const gamma_ij = gamma_2D_[ispec][jspec];
+  double const gamma_ik = gamma_2D_[ispec][kspec];
+  double const costheta0_ij = costheta0_2D_[ispec][jspec];
+  double const cutoff_ij = sqrt(cutoffSq_2D_[ispec][jspec]);
+  double const cutoff_ik = sqrt(cutoffSq_2D_[ispec][kspec]);
+  // mix parameters
+  double const lambda = sqrt(fabs(lambda_ij) * fabs(lambda_ik));
+  double const costheta0 = costheta0_ij;  // do not mix
+
+  if (rij < cutoff_ij && rik < cutoff_ik) {
+    double costhetajik = (rij*rij + rik*rik - rjk*rjk)/(2*rij*rik);
+    double diff_costhetajik = costhetajik - costheta0;
+    double exp_ij_ik = exp(gamma_ij/(rij - cutoff_ij) + gamma_ik/(rik - cutoff_ik));
+    phi = lambda * exp_ij_ik * diff_costhetajik * diff_costhetajik;
+  }
+  else {
+    phi = 0.0;
+  }
+
+}
+
+
+void StillingerWeberImplementation::CalcPhiDphiThree(int ispec, int jspec, int kspec,
+    double rij, double rik, double rjk, double& phi, double *const dphi)
+{
+  // get parameters
+  double const lambda_ij = lambda_2D_[ispec][jspec];
+  double const lambda_ik = lambda_2D_[ispec][kspec];
+  double const gamma_ij = gamma_2D_[ispec][jspec];
+  double const gamma_ik = gamma_2D_[ispec][kspec];
+  double const costheta0_ij = costheta0_2D_[ispec][jspec];
+  double const cutoff_ij = sqrt(cutoffSq_2D_[ispec][jspec]);
+  double const cutoff_ik = sqrt(cutoffSq_2D_[ispec][kspec]);
+  // mix parameters
+  double const lambda = sqrt(fabs(lambda_ij) * fabs(lambda_ik));
+  double const costheta0 = costheta0_ij;  // do not mix
+
+
+  if (rij < cutoff_ij && rik < cutoff_ik) {
+    double costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
+    double diff_costhetajik = costhetajik - costheta0;
+
+    /* Derivatives of cosines w.r.t rij, rik, rjk */
+    double costhetajik_ij = (pow(rij,2) - pow(rik,2) + pow(rjk,2))/(2*rij*rij*rik);
+    double costhetajik_ik = (pow(rik,2) - pow(rij,2) + pow(rjk,2))/(2*rij*rik*rik);
+    double costhetajik_jk = -rjk/(rij*rik);
+
+    /* Variables for simplifying terms */
+    double exp_ij_ik = exp(gamma_ij/(rij - cutoff_ij) + gamma_ik/(rik - cutoff_ik));
+    double d_ij = -gamma_ij*pow(rij - cutoff_ij, -2);
+    double d_ik = -gamma_ik*pow(rik - cutoff_ik, -2);
+
+    phi = lambda * exp_ij_ik * diff_costhetajik *  diff_costhetajik;
+
+    dphi[0] = lambda * diff_costhetajik * exp_ij_ik * (d_ij * diff_costhetajik
+        + 2*costhetajik_ij);
+    dphi[1] = lambda * diff_costhetajik * exp_ij_ik * (d_ik * diff_costhetajik
+        + 2*costhetajik_ik);
+    dphi[2] = lambda * diff_costhetajik * exp_ij_ik * 2 * costhetajik_jk;
+  }
+  else {
+    phi = 0.0;
+    dphi[0] = 0.0;
+    dphi[1] = 0.0;
+    dphi[2] = 0.0;
+  }
+}
+
+
+void StillingerWeberImplementation::CalcPhiD2phiThree(int ispec, int jspec, int kspec,
+    double rij, double rik, double rjk,
+    double& phi, double *const dphi, double *const d2phi)
+{
+  // get parameters
+  double const lambda_ij = lambda_2D_[ispec][jspec];
+  double const lambda_ik = lambda_2D_[ispec][kspec];
+  double const gamma_ij = gamma_2D_[ispec][jspec];
+  double const gamma_ik = gamma_2D_[ispec][kspec];
+  double const costheta0_ij = costheta0_2D_[ispec][jspec];
+  double const cutoff_ij = sqrt(cutoffSq_2D_[ispec][jspec]);
+  double const cutoff_ik = sqrt(cutoffSq_2D_[ispec][kspec]);
+  // mix parameters
+  double const lambda = sqrt(fabs(lambda_ij) * fabs(lambda_ik));
+  double const costheta0 = costheta0_ij;  // do not mix
+
+
+  if (rij < cutoff_ij && rik < cutoff_ik) {
+    double costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
+    double diff_costhetajik = costhetajik - costheta0;
+    double diff_costhetajik_2 = diff_costhetajik * diff_costhetajik;
+
+    /* Derivatives of cosines w.r.t. r_ij, r_ik, r_jk */
+    double costhetajik_ij = (pow(rij,2) - pow(rik,2) + pow(rjk,2))/(2*rij*rij*rik);
+    double costhetajik_ik = (pow(rik,2) - pow(rij,2) + pow(rjk,2))/(2*rij*rik*rik);
+    double costhetajik_jk = -rjk/(rij*rik);
+
+    /* Hessian matrix of cosine */
+    double costhetajik_ij_ij = (pow(rik,2) - pow(rjk,2))/(rij*rij*rij*rik);
+    double costhetajik_ik_ik = (pow(rij,2) - pow(rjk,2))/(rij*rik*rik*rik);
+    double costhetajik_jk_jk = -1/(rij*rik);
+    double costhetajik_ij_ik = -(pow(rij,2) + pow(rik,2) + pow(rjk,2))/(2*rij*rij*rik*rik);
+    double costhetajik_ij_jk = rjk/(rij*rij*rik);
+    double costhetajik_ik_jk = rjk/(rik*rik*rij);
+
+    /* Variables for simplifying terms */
+    double exp_ij_ik = exp(gamma_ij/(rij - cutoff_ij) + gamma_ik/(rik - cutoff_ik));
+    double d_ij = -gamma_ij*pow(rij - cutoff_ij, -2);
+    double d_ik = -gamma_ik*pow(rik - cutoff_ik, -2);
+    double d_ij_2 = d_ij * d_ij;
+    double d_ik_2 = d_ik * d_ik;
+    double dd_ij = 2*gamma_ij*pow(rij - cutoff_ij, -3);
+    double dd_ik = 2*gamma_ik*pow(rik - cutoff_ik, -3);
+
+    phi = lambda* exp_ij_ik * diff_costhetajik *  diff_costhetajik;
+
+    dphi[0] = lambda * diff_costhetajik * exp_ij_ik * (d_ij * diff_costhetajik
+        + 2*costhetajik_ij);
+    dphi[1] = lambda * diff_costhetajik * exp_ij_ik * (d_ik * diff_costhetajik
+        + 2*costhetajik_ik);
+    dphi[2] = lambda * diff_costhetajik * exp_ij_ik * 2 * costhetajik_jk;
+
+    d2phi[0] = exp_ij_ik * ((d_ij_2 + dd_ij) * diff_costhetajik_2
+        + (4 * d_ij * costhetajik_ij + 2 * costhetajik_ij_ij) * diff_costhetajik
+        + 2 * costhetajik_ij * costhetajik_ij);
+    d2phi[1] = exp_ij_ik * ((d_ik_2 + dd_ik) * diff_costhetajik_2
+        + (4 * d_ik * costhetajik_ik + 2 * costhetajik_ik_ik) * diff_costhetajik
+        + 2 * costhetajik_ik * costhetajik_ik);
+    d2phi[2] = 2 * exp_ij_ik * (costhetajik_jk_jk * diff_costhetajik
+        + costhetajik_jk *costhetajik_jk);
+    d2phi[3] = exp_ij_ik * (d_ij * d_ik * diff_costhetajik_2
+        + (d_ij * costhetajik_ik + d_ik * costhetajik_ij + costhetajik_ij_ik)
+        * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_ik);
+    d2phi[4] = exp_ij_ik * ((d_ij * costhetajik_jk + costhetajik_ij_jk)
+        * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_jk);
+    d2phi[5] = exp_ij_ik * ((d_ik * costhetajik_jk + costhetajik_ik_jk)
+        * 2 * diff_costhetajik + 2 * costhetajik_ik * costhetajik_jk);
+
+    d2phi[0]  *= lambda;   /*derivative is w.r.t. rij, rij*/
+    d2phi[1]  *= lambda;   /*derivative is w.r.t. rik, rik*/
+    d2phi[2]  *= lambda;   /*derivative is w.r.t. rjk, rjk*/
+    d2phi[3]  *= lambda;   /*derivative is w.r.t. rij, rik*/
+    d2phi[4]  *= lambda;   /*derivative is w.r.t. rij, rjk*/
+    d2phi[5]  *= lambda;   /*derivative is w.r.t. rik, rjk*/
+  }
+  else {
+    phi = 0.0;
+    dphi[0]  = dphi[1] = dphi[2] = 0.0;
+    d2phi[0] = d2phi[1] = d2phi[2] = 0.0;
+    d2phi[3] = d2phi[4] = d2phi[5] = 0.0;
+  }
+
+}
+
 
 //==============================================================================
 //
