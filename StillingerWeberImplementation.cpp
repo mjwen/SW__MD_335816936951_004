@@ -298,7 +298,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     ier = sscanf(nextLine, "%s %s %lg %lg %d %d %lg %lg %lg %lg %lg",
                  spec1, spec2, &next_A, &next_B, &next_p, &next_q, &next_sigma,
                  &next_lambda, &next_gamma, &next_costheta0, &next_cutoff);
-    if (ier != 5) {
+    if (ier != 11) {
       sprintf(nextLine, "error reading lines of the parameter file");
       LOG_ERROR(nextLine);
       return true;
@@ -863,7 +863,7 @@ void StillingerWeberImplementation::CalcPhiThree(int ispec, int jspec, int kspec
   double const costheta0 = costheta0_ij;  // do not mix
 
   if (rij < cutoff_ij && rik < cutoff_ik) {
-    double costhetajik = (rij*rij + rik*rik - rjk*rjk)/(2*rij*rik);
+    double costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
     double diff_costhetajik = costhetajik - costheta0;
     double exp_ij_ik = exp(gamma_ij/(rij - cutoff_ij) + gamma_ik/(rik - cutoff_ik));
     phi = lambda * exp_ij_ik * diff_costhetajik * diff_costhetajik;
@@ -907,10 +907,10 @@ void StillingerWeberImplementation::CalcPhiDphiThree(int ispec, int jspec, int k
 
     phi = lambda * exp_ij_ik * diff_costhetajik *  diff_costhetajik;
 
-    dphi[0] = lambda * diff_costhetajik * exp_ij_ik * (d_ij * diff_costhetajik
-        + 2*costhetajik_ij);
-    dphi[1] = lambda * diff_costhetajik * exp_ij_ik * (d_ik * diff_costhetajik
-        + 2*costhetajik_ik);
+    dphi[0] = lambda * diff_costhetajik * exp_ij_ik
+        * (d_ij * diff_costhetajik + 2*costhetajik_ij);
+    dphi[1] = lambda * diff_costhetajik * exp_ij_ik
+        * (d_ik * diff_costhetajik + 2*costhetajik_ik);
     dphi[2] = lambda * diff_costhetajik * exp_ij_ik * 2 * costhetajik_jk;
   }
   else {
@@ -921,6 +921,16 @@ void StillingerWeberImplementation::CalcPhiDphiThree(int ispec, int jspec, int k
   }
 }
 
+
+// Calculate phi_three(rij, rik, rjk) and its 1st & 2nd derivatives
+// dphi_three(rij, rik, rjk), d2phi_three(rij, rik, rjk)
+//
+// dphi has three components as derivatives of phi w.r.t. rij, rik, rjk
+//
+// d2phi as symmetric Hessian matrix of phi has six components:
+//    [0]=(ij,ij), [3]=(ij,ik), [4]=(ij,jk)
+//                 [1]=(ik,ik), [5]=(ik,jk)
+//                              [2]=(jk,jk)
 
 void StillingerWeberImplementation::CalcPhiD2phiThree(int ispec, int jspec, int kspec,
     double rij, double rik, double rjk,
@@ -968,40 +978,32 @@ void StillingerWeberImplementation::CalcPhiD2phiThree(int ispec, int jspec, int 
 
     phi = lambda* exp_ij_ik * diff_costhetajik *  diff_costhetajik;
 
-    dphi[0] = lambda * diff_costhetajik * exp_ij_ik * (d_ij * diff_costhetajik
-        + 2*costhetajik_ij);
-    dphi[1] = lambda * diff_costhetajik * exp_ij_ik * (d_ik * diff_costhetajik
-        + 2*costhetajik_ik);
+    dphi[0] = lambda * diff_costhetajik * exp_ij_ik
+        * (d_ij * diff_costhetajik + 2*costhetajik_ij);
+    dphi[1] = lambda * diff_costhetajik * exp_ij_ik
+        * (d_ik * diff_costhetajik + 2*costhetajik_ik);
     dphi[2] = lambda * diff_costhetajik * exp_ij_ik * 2 * costhetajik_jk;
 
-    d2phi[0] = exp_ij_ik * ((d_ij_2 + dd_ij) * diff_costhetajik_2
+    d2phi[0] = lambda * exp_ij_ik * ((d_ij_2 + dd_ij) * diff_costhetajik_2
         + (4 * d_ij * costhetajik_ij + 2 * costhetajik_ij_ij) * diff_costhetajik
         + 2 * costhetajik_ij * costhetajik_ij);
-    d2phi[1] = exp_ij_ik * ((d_ik_2 + dd_ik) * diff_costhetajik_2
+    d2phi[1] = lambda * exp_ij_ik * ((d_ik_2 + dd_ik) * diff_costhetajik_2
         + (4 * d_ik * costhetajik_ik + 2 * costhetajik_ik_ik) * diff_costhetajik
         + 2 * costhetajik_ik * costhetajik_ik);
-    d2phi[2] = 2 * exp_ij_ik * (costhetajik_jk_jk * diff_costhetajik
+    d2phi[2] = lambda * 2 * exp_ij_ik * (costhetajik_jk_jk * diff_costhetajik
         + costhetajik_jk *costhetajik_jk);
-    d2phi[3] = exp_ij_ik * (d_ij * d_ik * diff_costhetajik_2
+    d2phi[3] = lambda * exp_ij_ik * (d_ij * d_ik * diff_costhetajik_2
         + (d_ij * costhetajik_ik + d_ik * costhetajik_ij + costhetajik_ij_ik)
         * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_ik);
-    d2phi[4] = exp_ij_ik * ((d_ij * costhetajik_jk + costhetajik_ij_jk)
+    d2phi[4] = lambda * exp_ij_ik * ((d_ij * costhetajik_jk + costhetajik_ij_jk)
         * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_jk);
-    d2phi[5] = exp_ij_ik * ((d_ik * costhetajik_jk + costhetajik_ik_jk)
+    d2phi[5] = lambda * exp_ij_ik * ((d_ik * costhetajik_jk + costhetajik_ik_jk)
         * 2 * diff_costhetajik + 2 * costhetajik_ik * costhetajik_jk);
-
-    d2phi[0]  *= lambda;   /*derivative is w.r.t. rij, rij*/
-    d2phi[1]  *= lambda;   /*derivative is w.r.t. rik, rik*/
-    d2phi[2]  *= lambda;   /*derivative is w.r.t. rjk, rjk*/
-    d2phi[3]  *= lambda;   /*derivative is w.r.t. rij, rik*/
-    d2phi[4]  *= lambda;   /*derivative is w.r.t. rij, rjk*/
-    d2phi[5]  *= lambda;   /*derivative is w.r.t. rik, rjk*/
   }
   else {
     phi = 0.0;
-    dphi[0]  = dphi[1] = dphi[2] = 0.0;
-    d2phi[0] = d2phi[1] = d2phi[2] = 0.0;
-    d2phi[3] = d2phi[4] = d2phi[5] = 0.0;
+    dphi[0] = dphi[1] = dphi[2] = 0.0;
+    d2phi[0] = d2phi[1] = d2phi[2] = d2phi[3] = d2phi[4] = d2phi[5] = 0.0;
   }
 
 }
