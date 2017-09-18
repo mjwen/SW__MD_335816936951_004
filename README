@@ -19,11 +19,9 @@
 #
 
 #
-# Copyright (c) 2012, Regents of the University of Minnesota.  All rights reserved.
+# Copyright (c) 2017, Regents of the University of Minnesota.  All rights reserved.
 #
 # Contributors:
-#    Ryan S. Elliott
-#    Ellad B. Tadmor
 #    Mingjian Wen
 
 #
@@ -31,87 +29,75 @@
 #
 
 
-This directory (Three_Body_Stillinger_Weber__MD_335816936951_002) contains Stillinger-Weber(SW) potential
-Model Driver written in C.
+This directory (Three_Body_Stillinger_Weber__MD_000000111111_000) contains
+Stillinger-Weber(SW) potential Model Driver that is compatible with kim-api v2.x.x.
 
 
-1. This is a direct extention of the standard Stillinger-Weber potential to support multiple species.
-   Usage of a subset of the supported species is valid. For example, if there are 3 species A, B and C
-   in the parameter file, the use of single species A (or B or C) or two species A and B (or A and C,
-   or B and C) are fine.
+1. This is a direct extention of the standard Stillinger-Weber potential to
+   support multiple species. Usage of a subset of the supported species is valid.
+   For example, if there are 3 species A, B and C in the parameter file, the use
+   of single species A (or B or C) or two species A and B (or A and C, or B and C)
+   are valid.
 
+2. The functional form has been rewritten so as to separate the parameters to avoid
+   inconvenience of using this Model Dirver. The varible 'epsilon' in the standard
+   SW potential is a dummy variable, so it is combined with 'A' and 'lambda'.
+   The 'cutoff' of the standard SW potential is determined implicitly by
+   'cutoff' = 'a*sigma', where 'a' is a potential parameter. In this Model Driver,
+   the 'cutoff' is defined explicitly. By doing this, if 'sigma' is updated through
+   'PARAM_sigma' there is no needed to update 'cutoff'. Above all, compared to the
+   standard SW potential, the following redefinitions have been made:
 
-2. The functional form has been rewritten so as to separate the parameters to avoid inconvenience of using  
-   this Model Dirver.  The varible 'epsilon' in the standard SW potential is a dummy variable, so it is 
-   combined with 'A' and 'lambda'.  The 'cutoff' of the standard SW potential is determined implicitly
-   by 'cutoff' = 'a*sigma', where 'a' is a potential parameter.  In this Model Driver, the 'cutoff' is
-   defined explicitly.  By doing this, if 'sigma' is updated through 'PARAM_FREE_sigma' there is no needed
-   to update 'cutoff'.
-
-   Above all, compared to the standard SW potential, the following redefinitions have been made:
    A      := A*epsilon
    lambda := lambda*epsion
    gamma  := gamma*sigma
    rcut   := a*sigma
 
-   Besides, an approximation is made:
-   lambda_ijk = sqrt(lambda_ij)*sqrt(lambda_ik),
+   Besides, an the three-body parameter lambda follows the below mixing rule:
+   lambda_ijk = sqrt(lambda_ij)*sqrt(lambda_ik)
 
-   and also we assume that the ideal angle 'thetea0' is the same between all 3-body interactions. 
+   Also it is assumed that the angle 'thetea0' is the same for all three-body
+   interactions.
 
-   Then the SW potential for multiple species can be written as:
-  
+
+   Consequently, the SW potential for multiple species can be written as:
+
    E = sum_{i,j>i} phi_2(rij) + sum_{i, j!=i, k>j} phi_3(rij, rik, theta)
 
    phi_2(rij)           = Aij*(Bij(rij/sigma_ij)^(-p) - (rij/sigma_ij)^(-q))
                           * exp(sigma_ij/(rij - rcutij))
 
-   phi_3(rij,rik,theta) = sqrt(lambda_ij)*sqrt(lambda_ik)(cos[theta] - cos[theta0])^2 
+   phi_3(rij,rik,theta) = sqrt(lambda_ij)*sqrt(lambda_ik)(cos[theta] - cos[theta0])^2
                           *  exp(gamma_ij/(rij - rcutij) + gamma_ik/(rik - rcutik))
 
 
 3. One parameter file is needed, and the parameters should be given as:
-     first line: number of species
+      first line: number of species
 
-   Then each line lists the following 9 parameters for the interaction between two species:
-     A(in ev) B p q sigma(in Angstrom) lambda(in eV) gamma(in Angstorm) costheta_0 cutoff
+   Then each line lists two species and 9 parameters for the interaction between the
+   two species:
 
-   Note that one should list all the interactions for one species and then proceed to list all the
-   interaction for the next species.  For example, if there are 3 species, then the parameters should
-   be in the following order,
-     (1,1)
-     (1,2)   # (2,1) is the same as (1,2), so only list it once here
-     (1,3)
-     (2,2)
-     (2,3)
-     (3,3)
-     where, (i,j) means the parameters for species i and species j.  There should be N*(N+1)/2 such 
-     lines for N species. 
+      Species1 Species2 A B p q sigma lambda gamma costheta_0 cutoff
 
-
-The Model Driver complies with the KIM API standard, using four neihgbor handling methods: MI_OPBC_F,
-NEIGH_PURE_F, NEIGH_RVEC_F, and CLUSTER and iterator or locator mode. It publishes its parameters
-and supports optional computation of 'energy', 'forces', 'particleEnergy', 'process_dEdr',
-and 'process_dE2dr2'. Its initializaton routine takes a KIM API object pointer and a pointer to a string 
-that contains all parameters which define a KIM Model based on this KIM Model Driver.
+   A and lambda are in eV, sigma, gamma, and cutoff are in Angstrom, others are unitless.
 
 
 References:
 
-1. F. H. Stillinger and T. A. Weber, "Computer simulation of local order in condensed phases of silicon",
-   Phys. Rev. B, vol. 31, 5262-5271, 1985
+1. F. H. Stillinger and T. A. Weber, "Computer simulation of local order in
+   condensed phases of silicon", Phys. Rev. B, vol. 31, 5262-5271, 1985
 
-2. Ellad B. Tadmor and Ronald E. Miller, Modeling Materials: Continuum, Atomistic and Multiscale Techniques,
-   Cambridge University Press, 2011
+2. Ellad B. Tadmor and Ronald E. Miller, Modeling Materials: Continuum, Atomistic
+   and Multiscale Techniques, Cambridge University Press, 2011
 
-3. X. W. Zhou, D. K. Ward, and J. E. Martin, et al, "Stillinger-Weber potential for the II-VI elements 
-   Zn-Cd-Hg-S-Se-Te" Phys. Rev. B, 88, 085309, 2013.
+3. X. W. Zhou, D. K. Ward, and J. E. Martin, et al, "Stillinger-Weber potential
+   for the II-VI elements Zn-Cd-Hg-S-Se-Te" Phys. Rev. B, 88, 085309, 2013.
 
 
 The following files are in this directory:
 
 LICENSE.CDDL
-     The Common Development and Distribution License (CDDL) Version 1.0 file
+    The Common Development and Distribution License (CDDL) Version 1.0 file
 
 Makefile
     makefile to compile and build executables with GNU or Intel compilers
@@ -119,11 +105,16 @@ Makefile
 README
     This file
 
-Three_Body_Stillinger_Weber.c
-    C file that contains the implementation of the 3-body Stillinger-Weber potential Model Driver
+StillingerWeberImplementation.hpp
+StillingerWeberImplementation.cpp
+    Stillinger-Weber potential implementation.
 
-Three_Body_Stillinger_Weber.kim.tpl
-    Template KIM descriptor file containing all variables and methods that are
-    exposed by the driver through the KIM API interface.  This file will be
-    used (by the make system) to generate a KIM descriptor file for each KIM
-    Model based on this Model Driver.
+StillingerWeber.hpp
+StillingerWeber.cpp
+    Wrapper class of implementation.
+
+CreateDispatch.sh
+    Helper functions.
+
+kimspec.edn
+    OpenKIM metadata.
