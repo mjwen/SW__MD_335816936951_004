@@ -266,9 +266,8 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   int endOfFileFlag = 0;
   char spec1[MAXLINE], spec2[MAXLINE], nextLine[MAXLINE];
   int iIndex, jIndex , indx;
-  double next_A, next_B, next_sigma, next_lambda, next_gamma;
+  double next_A, next_B, next_p, next_q, next_sigma, next_lambda, next_gamma;
   double next_costheta0, next_cutoff;
-  int next_p, next_q;
 
   getNextDataLine(parameterFilePointers[0], nextLine, MAXLINE, &endOfFileFlag);
   ier = sscanf(nextLine, "%d", &N);
@@ -283,9 +282,9 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   numberUniqueSpeciesPairs_ = ((numberModelSpecies_+1)*numberModelSpecies_)/2;
   AllocateFreeParameterMemory();
 
-  // set all values of p_ to -1 for later check that we have read all params
+  // set all values of p_ to -1.1e10 for later check that we have read all params
   for (int i = 0; i < ((N+1)*N/2); i++) {
-    p_[i]  = -1;
+    p_[i]  = -1.1e10;
   }
 
   // keep track of known species
@@ -296,7 +295,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   getNextDataLine(parameterFilePointers[0], nextLine, MAXLINE, &endOfFileFlag);
   while (endOfFileFlag == 0)
   {
-    ier = sscanf(nextLine, "%s %s %lg %lg %d %d %lg %lg %lg %lg %lg",
+    ier = sscanf(nextLine, "%s %s %lg %lg %lg %lg %lg %lg %lg %lg %lg",
                  spec1, spec2, &next_A, &next_B, &next_p, &next_q, &next_sigma,
                  &next_lambda, &next_gamma, &next_costheta0, &next_cutoff);
     if (ier != 11) {
@@ -359,7 +358,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
 
   // check we have read all parameters
   for (int i = 0; i < ((N+1)*N/2); i++) {
-    if (p_[i] == -1) {
+    if (p_[i] < -1e10) {
       sprintf(nextLine, "error: not enough parameter data.\n");
       sprintf(nextLine, "%d species requires %d data lines.", N, (N+1)*N/2);
       LOG_ERROR(nextLine);
@@ -767,8 +766,8 @@ void StillingerWeberImplementation::CalcPhiTwo(int ispec, int jspec,
   // get parameters
   double const A = A_2D_[ispec][jspec];
   double const B = B_2D_[ispec][jspec];
-  int const p = p_2D_[ispec][jspec];
-  int const q = q_2D_[ispec][jspec];
+  double const p = p_2D_[ispec][jspec];
+  double const q = q_2D_[ispec][jspec];
   double const sigma = sigma_2D_[ispec][jspec];
   double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
 
@@ -790,8 +789,8 @@ void StillingerWeberImplementation::CalcPhiDphiTwo(int ispec, int jspec,
   // get parameters
   double const A = A_2D_[ispec][jspec];
   double const B = B_2D_[ispec][jspec];
-  int const p = p_2D_[ispec][jspec];
-  int const q = q_2D_[ispec][jspec];
+  double const p = p_2D_[ispec][jspec];
+  double const q = q_2D_[ispec][jspec];
   double const sigma = sigma_2D_[ispec][jspec];
   double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
 
@@ -818,8 +817,8 @@ void StillingerWeberImplementation::CalcPhiD2phiTwo(int ispec, int jspec,
   // get parameters
   double const A = A_2D_[ispec][jspec];
   double const B = B_2D_[ispec][jspec];
-  int const p = p_2D_[ispec][jspec];
-  int const q = q_2D_[ispec][jspec];
+  double const p = p_2D_[ispec][jspec];
+  double const q = q_2D_[ispec][jspec];
   double const sigma = sigma_2D_[ispec][jspec];
   double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
 
