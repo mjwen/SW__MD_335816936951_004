@@ -25,7 +25,7 @@
 // Contributors:
 //    Ryan S. Elliott
 //    Andrew Akerson
-//
+//    Mingjian Wen
 
 
 #ifndef STILLINGER_WEBER_HPP_

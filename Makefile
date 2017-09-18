@@ -26,7 +26,7 @@
 #    Ryan S. Elliott
 #    Ellad B. Tadmor
 #    Valeriu Smirichinski
-#
+#    Mingjian Wen
 
 
 # load all basic KIM make configuration
@@ -67,6 +67,7 @@ LOCALCLEAN = StillingerWeberImplementationComputeDispatch.cpp
 #CFLAGS   +=
 #CXXFLAGS +=
 #LDFLAGS  +=
+#LDLIBS   +=
 
 # load remaining KIM make configuration
 include $(KIM_DIR)/$(builddir)/Makefile.ModelDriver

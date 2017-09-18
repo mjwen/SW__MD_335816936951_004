@@ -28,7 +28,7 @@
 # Contributors:
 #    Ryan S. Elliott
 #    Stephen M. Whalen
-#
+#    Mingjian Wen
 
 
 flName=StillingerWeberImplementationComputeDispatch.cpp
