@@ -617,7 +617,7 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
 
   influenceDistance_ = sqrt(influenceDistance_);
   modelObj->SetInfluenceDistancePointer(&influenceDistance_);
-  modelObj->SetCutoffsPointer(1, &influenceDistance_);
+  modelObj->SetNeighborListCutoffsPointer(1, &influenceDistance_);
 
 
   // everything is good
@@ -662,7 +662,7 @@ int StillingerWeberImplementation::SetComputeMutableValues(
           KIM::ARGUMENT_NAME::numberOfParticles,
           &numberOfParticles)
       || modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::particleSpecies,
+          KIM::ARGUMENT_NAME::particleSpeciesCodes,
           &particleSpecies)
       || modelCompute->GetArgumentPointer(
           KIM::ARGUMENT_NAME::particleContributing,
