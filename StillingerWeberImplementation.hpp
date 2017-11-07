@@ -34,7 +34,6 @@
 #define STILLINGER_WEBER_IMPLEMENTATION_HPP_
 
 #include <vector>
-#include <unordered_map>
 #include "KIM_LogVerbosity.hpp"
 #include "StillingerWeber.hpp"
 

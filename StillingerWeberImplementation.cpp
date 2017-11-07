@@ -35,6 +35,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 
 #include "StillingerWeber.hpp"
 #include "StillingerWeberImplementation.hpp"
@@ -67,25 +68,25 @@ StillingerWeberImplementation::StillingerWeberImplementation(
     int * const ier)
 : numberModelSpecies_(0),
   numberUniqueSpeciesPairs_(0),
-  cutoff_(nullptr),
-  A_(nullptr),
-  B_(nullptr),
-  p_(nullptr),
-  q_(nullptr),
-  sigma_(nullptr),
-  lambda_(nullptr),
-  gamma_(nullptr),
-  costheta0_(nullptr),
+  cutoff_(0),
+  A_(0),
+  B_(0),
+  p_(0),
+  q_(0),
+  sigma_(0),
+  lambda_(0),
+  gamma_(0),
+  costheta0_(0),
   influenceDistance_(0.0),
-  cutoffSq_2D_(nullptr),
-  A_2D_(nullptr),
-  B_2D_(nullptr),
-  p_2D_(nullptr),
-  q_2D_(nullptr),
-  sigma_2D_(nullptr),
-  lambda_2D_(nullptr),
-  gamma_2D_(nullptr),
-  costheta0_2D_(nullptr),
+  cutoffSq_2D_(0),
+  A_2D_(0),
+  B_2D_(0),
+  p_2D_(0),
+  q_2D_(0),
+  sigma_2D_(0),
+  lambda_2D_(0),
+  gamma_2D_(0),
+  costheta0_2D_(0),
   cachedNumberOfParticles_(0)
 {
   FILE* parameterFilePointers[MAX_PARAMETER_FILES];
@@ -288,7 +289,8 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   }
 
   // keep track of known species
-  std::unordered_map<KIM::SpeciesName const, int> modelSpeciesMap;
+  std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>
+      modelSpeciesMap;
   int index = 0;   // species code integer code starting from 0
 
   // Read and process data lines
@@ -309,7 +311,8 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     KIM::SpeciesName const specName2(spec2);
 
     // check for new species
-    auto iIter = modelSpeciesMap.find(specName1);
+    std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>::
+        const_iterator iIter = modelSpeciesMap.find(specName1);
     if (iIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName1] = index;
       modelSpeciesCodeList_.push_back(index);
@@ -323,7 +326,8 @@ int StillingerWeberImplementation::ProcessParameterFiles(
       iIndex = modelSpeciesMap[specName1];
     }
 
-    auto jIter = modelSpeciesMap.find(specName2);
+    std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>::
+        const_iterator jIter = modelSpeciesMap.find(specName2);
     if (jIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName2] = index;
       modelSpeciesCodeList_.push_back(index);
@@ -685,9 +689,9 @@ int StillingerWeberImplementation::SetComputeMutableValues(
     return ier;
   }
 
-  isComputeEnergy = (energy != nullptr);
-  isComputeParticleEnergy = (particleEnergy != nullptr);
-  isComputeForces = (forces != nullptr);
+  isComputeEnergy = (energy != 0);
+  isComputeParticleEnergy = (particleEnergy != 0);
+  isComputeForces = (forces != 0);
 
   // update values
   cachedNumberOfParticles_ = *numberOfParticles;
@@ -1036,9 +1040,9 @@ void AllocateAndInitialize2DArray(double**& arrayPtr, int const extentZero,
 //******************************************************************************
 void Deallocate2DArray(double**& arrayPtr)
 { // deallocate memory
-  if (arrayPtr != nullptr) delete [] arrayPtr[0];
+  if (arrayPtr != 0) delete [] arrayPtr[0];
   delete [] arrayPtr;
 
   // nullify pointer
-  arrayPtr = nullptr;
+  arrayPtr = 0;
 }
