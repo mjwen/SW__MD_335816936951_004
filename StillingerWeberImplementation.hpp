@@ -83,7 +83,15 @@ class StillingerWeberImplementation
   ~StillingerWeberImplementation();  // no explicit Destroy() needed here
 
   int Refresh(KIM::ModelRefresh * const modelRefresh);
-  int Compute(KIM::ModelCompute const * const modelCompute);
+  int Compute(KIM::ModelCompute const * const modelCompute,
+      KIM::ModelComputeArguments const * const modelComputeArguments);
+  int ComputeArgumentsCreate(
+      KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate)
+      const;
+  int ComputeArgumentsDestroy(
+      KIM::ModelComputeArgumentsDestroy * const modelComputeArgumentsDestroy)
+      const;
+
 
  private:
   // Constant values that never change
@@ -177,7 +185,9 @@ class StillingerWeberImplementation
       KIM::ChargeUnit const requestedChargeUnit,
       KIM::TemperatureUnit const requestedTemperatureUnit,
       KIM::TimeUnit const requestedTimeUnit);
-  int RegisterKIMModelSettings(KIM::ModelDriverCreate * const modelDriverCreate);
+  int RegisterKIMModelSettings(KIM::ModelDriverCreate * const modelDriverCreate) const;
+  int RegisterKIMComputeArgumentsSettings(
+      KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate) const;
   int RegisterKIMParameters(KIM::ModelDriverCreate * const modelDriverCreate);
   int RegisterKIMFunctions(KIM::ModelDriverCreate * const modelDriverCreate) const;
   //
@@ -186,7 +196,7 @@ class StillingerWeberImplementation
   int SetRefreshMutableValues(ModelObj * const modelObj);
   //
   // Related to Compute()
-  int SetComputeMutableValues(KIM::ModelCompute const * const modelCompute,
+  int SetComputeMutableValues(KIM::ModelComputeArguments const * const modelCompute,
                               bool& isComputeProcess_dEdr,
                               bool& isComputeProcess_d2Edr2,
                               bool& isComputeEnergy,
@@ -211,6 +221,7 @@ class StillingerWeberImplementation
             bool isComputeEnergy, bool isComputeForces,
             bool isComputeParticleEnergy>
   int Compute(KIM::ModelCompute const * const modelCompute,
+              KIM::ModelComputeArguments const * const modelComputeArguments,
               const int* const particleSpecies,
               const int* const particleContributing,
               const VectorOfSizeDIM* const coordinates,
@@ -253,6 +264,7 @@ template< bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
           bool isComputeParticleEnergy>
 int StillingerWeberImplementation::Compute(
     KIM::ModelCompute const * const modelCompute,
+    KIM::ModelComputeArguments const * const modelComputeArguments,
     const int* const particleSpecies,
     const int* const particleContributing,
     const VectorOfSizeDIM* const coordinates,
@@ -296,7 +308,7 @@ int StillingerWeberImplementation::Compute(
 
   for (i = 0; i < cachedNumberOfParticles_; ++i) {
     if (particleContributing[i]) {
-      modelCompute->GetNeighborList(0, i, &numnei, &n1atom);
+      modelComputeArguments->GetNeighborList(0, i, &numnei, &n1atom);
       int const iSpecies = particleSpecies[i];
 
       // Setup loop over neighbors of current particle
@@ -357,7 +369,7 @@ int StillingerWeberImplementation::Compute(
 
           // Call process_dEdr
           if (isComputeProcess_dEdr == true) {
-            ier = modelCompute->ProcessDEDrTerm(dEidr_two, rij_mag, rij, i, j);
+            ier = modelComputeArguments->ProcessDEDrTerm(dEidr_two, rij_mag, rij, i, j);
             if (ier) {
               LOG_ERROR("process_dEdr");
               return ier;
@@ -377,7 +389,7 @@ int StillingerWeberImplementation::Compute(
             int const* const pis = &i_pairs[0];
             int const* const pjs = &j_pairs[0];
 
-            ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_two, pRs,
+            ier = modelComputeArguments->ProcessD2EDr2Term(d2Eidr2_two, pRs,
                 pRijConsts, pis, pjs);
             if (ier) {
               LOG_ERROR("process_d2Edr2");
@@ -470,9 +482,12 @@ int StillingerWeberImplementation::Compute(
 
               // Call process_dEdr
               if (isComputeProcess_dEdr == true) {
-                ier = modelCompute->ProcessDEDrTerm(dEidr_three[0], rij_mag, rij, i, j)
-                   || modelCompute->ProcessDEDrTerm(dEidr_three[1], rik_mag, rik, i, k)
-                   || modelCompute->ProcessDEDrTerm(dEidr_three[2], rjk_mag, rjk, j, k);
+                ier = modelComputeArguments
+                      ->ProcessDEDrTerm(dEidr_three[0], rij_mag, rij, i, j)
+                   || modelComputeArguments
+                      ->ProcessDEDrTerm(dEidr_three[1], rik_mag, rik, i, k)
+                   || modelComputeArguments
+                      ->ProcessDEDrTerm(dEidr_three[2], rjk_mag, rjk, j, k);
                 if (ier) {
                   LOG_ERROR("process_dEdr");
                   return ier;
@@ -496,8 +511,8 @@ int StillingerWeberImplementation::Compute(
                 Rij_pairs[2] = Rij_pairs[5] = rij[2];
                 i_pairs[0] = i_pairs[1] = i;
                 j_pairs[0] = j_pairs[1] = j;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[0], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[0], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -509,8 +524,8 @@ int StillingerWeberImplementation::Compute(
                 Rij_pairs[2] = Rij_pairs[5] = rik[2];
                 i_pairs[0] = i_pairs[1] = i;
                 j_pairs[0] = j_pairs[1] = k;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[1], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[1], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -522,8 +537,8 @@ int StillingerWeberImplementation::Compute(
                 Rij_pairs[2] = Rij_pairs[5] = rjk[2];
                 i_pairs[0] = i_pairs[1] = j;
                 j_pairs[0] = j_pairs[1] = k;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[2], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[2], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -541,8 +556,8 @@ int StillingerWeberImplementation::Compute(
                 j_pairs[0] = j;
                 i_pairs[1] = i;
                 j_pairs[1] = k;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[3], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[3], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -560,8 +575,8 @@ int StillingerWeberImplementation::Compute(
                 j_pairs[0] = k;
                 i_pairs[1] = i;
                 j_pairs[1] = j;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[3], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[3], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -579,8 +594,8 @@ int StillingerWeberImplementation::Compute(
                 j_pairs[0] = j;
                 i_pairs[1] = j;
                 j_pairs[1] = k;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[4], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[4], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -599,8 +614,8 @@ int StillingerWeberImplementation::Compute(
                 j_pairs[0] = k;
                 i_pairs[1] = i;
                 j_pairs[1] = j;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[4], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[4], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -618,8 +633,8 @@ int StillingerWeberImplementation::Compute(
                 j_pairs[0] = k;
                 i_pairs[1] = j;
                 j_pairs[1] = k;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[5], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[5], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;
@@ -637,8 +652,8 @@ int StillingerWeberImplementation::Compute(
                 j_pairs[0] = k;
                 i_pairs[1] = i;
                 j_pairs[1] = k;
-                ier = modelCompute->ProcessD2EDr2Term(d2Eidr2_three[5], pRs,
-                    pRijConsts, pis, pjs);
+                ier = modelComputeArguments
+                      ->ProcessD2EDr2Term(d2Eidr2_three[5], pRs, pRijConsts, pis, pjs);
                 if (ier) {
                   LOG_ERROR("process_d2Edr2");
                   return ier;

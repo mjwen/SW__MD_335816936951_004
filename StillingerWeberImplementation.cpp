@@ -37,15 +37,13 @@
 #include <iostream>
 #include <map>
 
-#include "StillingerWeber.hpp"
 #include "StillingerWeberImplementation.hpp"
-#include "KIM_SupportStatus.hpp"
 #include "KIM_Numbering.hpp"
 #include "KIM_LanguageName.hpp"
 #include "KIM_SpeciesName.hpp"
-#include "KIM_UnitSystem.hpp"
-#include "KIM_ArgumentName.hpp"
-#include "KIM_CallbackName.hpp"
+#include "KIM_SupportStatus.hpp"
+#include "KIM_ComputeArgumentName.hpp"
+#include "KIM_ComputeCallbackName.hpp"
 
 #define MAXLINE 1024
 
@@ -169,7 +167,8 @@ int StillingerWeberImplementation::Refresh(
 
 //******************************************************************************
 int StillingerWeberImplementation::Compute(
-    KIM::ModelCompute const * const modelCompute)
+    KIM::ModelCompute const * const modelCompute,
+    KIM::ModelComputeArguments const * const modelComputeArguments)
 {
   int ier;
 
@@ -191,7 +190,8 @@ int StillingerWeberImplementation::Compute(
   double* energy = 0;
   double* particleEnergy = 0;
   VectorOfSizeDIM* forces = 0;
-  ier = SetComputeMutableValues(modelCompute, isComputeProcess_dEdr,
+  ier = SetComputeMutableValues(modelComputeArguments,
+                                isComputeProcess_dEdr,
                                 isComputeProcess_d2Edr2, isComputeEnergy,
                                 isComputeForces, isComputeParticleEnergy,
                                 particleSpecies, particleContributing,
@@ -207,6 +207,41 @@ int StillingerWeberImplementation::Compute(
 #include "StillingerWeberImplementationComputeDispatch.cpp"
   return ier;
 }
+
+
+
+//******************************************************************************
+int StillingerWeberImplementation::ComputeArgumentsCreate(
+    KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate) const
+{
+  int ier;
+
+  ier = RegisterKIMComputeArgumentsSettings(modelComputeArgumentsCreate);
+  if (ier) return ier;
+
+  // nothing else to do for this case
+
+  // everything is good
+  ier = false;
+  return ier;
+}
+
+//******************************************************************************
+int StillingerWeberImplementation::ComputeArgumentsDestroy(
+    KIM::ModelComputeArgumentsDestroy * const modelComputeArgumentsDestroy)
+  const
+{
+  int ier;
+
+  // nothing else to do for this case
+
+  // everything is good
+  ier = false;
+  return ier;
+}
+
+
+
 
 //==============================================================================
 //
@@ -230,14 +265,14 @@ int StillingerWeberImplementation::OpenParameterFiles(
   }
 
   for (int i = 0; i < numberParameterFiles; ++i) {
-    std::string paramFileName;
+    std::string const * paramFileName;
     ier = modelDriverCreate->GetParameterFileName(i, &paramFileName);
     if (ier) {
       LOG_ERROR("Unable to get parameter file name");
       return ier;
     }
 
-    parameterFilePointers[i] = fopen(paramFileName.c_str(), "r");
+    parameterFilePointers[i] = fopen(paramFileName->c_str(), "r");
     if (parameterFilePointers[i] == 0) {
       char message[MAXLINE];
       sprintf(message,
@@ -496,9 +531,9 @@ int StillingerWeberImplementation::ConvertUnits(
   ier = modelDriverCreate->SetUnits(
       requestedLengthUnit,
       requestedEnergyUnit,
-      requestedChargeUnit,
-      requestedTemperatureUnit,
-      requestedTimeUnit);
+      KIM::CHARGE_UNIT::unused,
+      KIM::TEMPERATURE_UNIT::unused,
+      KIM::TIME_UNIT::unused);
   if (ier) {
     LOG_ERROR("Unable to set units to requested values");
     return ier;
@@ -511,33 +546,48 @@ int StillingerWeberImplementation::ConvertUnits(
 
 //******************************************************************************
 int StillingerWeberImplementation::RegisterKIMModelSettings(
-    KIM::ModelDriverCreate * const modelDriverCreate)
+    KIM::ModelDriverCreate * const modelDriverCreate) const
 {
   // register numbering
   int error = modelDriverCreate->SetModelNumbering(KIM::NUMBERING::zeroBased);
-
-  // register arguments
-  LOG_INFORMATION("Register argument supportStatus");
-  error = error
-      || modelDriverCreate->SetArgumentSupportStatus(
-          KIM::ARGUMENT_NAME::partialEnergy, KIM::SUPPORT_STATUS::optional)
-      || modelDriverCreate->SetArgumentSupportStatus(
-          KIM::ARGUMENT_NAME::partialForces, KIM::SUPPORT_STATUS::optional)
-      || modelDriverCreate->SetArgumentSupportStatus(
-          KIM::ARGUMENT_NAME::partialParticleEnergy, KIM::SUPPORT_STATUS::optional);
-
-  // register callbacks
-  LOG_INFORMATION("Register callback supportStatus");
-  error = error
-      || modelDriverCreate->SetCallbackSupportStatus(
-          KIM::CALLBACK_NAME::ProcessDEDrTerm, KIM::SUPPORT_STATUS::optional)
-      || modelDriverCreate->SetCallbackSupportStatus(
-          KIM::CALLBACK_NAME::ProcessD2EDr2Term, KIM::SUPPORT_STATUS::optional);
 
   return error;
 }
 
 //******************************************************************************
+#include "KIM_ModelComputeArgumentsCreateLogMacros.hpp"
+int StillingerWeberImplementation::RegisterKIMComputeArgumentsSettings(
+    KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate) const
+{
+  // register arguments
+  LOG_INFORMATION("Register argument supportStatus");
+
+  int error =
+      modelComputeArgumentsCreate->SetArgumentSupportStatus(
+          KIM::COMPUTE_ARGUMENT_NAME::partialEnergy,
+          KIM::SUPPORT_STATUS::optional)
+      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
+          KIM::COMPUTE_ARGUMENT_NAME::partialForces,
+          KIM::SUPPORT_STATUS::optional)
+      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
+          KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
+          KIM::SUPPORT_STATUS::optional);
+
+  // register callbacks
+  LOG_INFORMATION("Register callback supportStatus");
+  error = error
+      || modelComputeArgumentsCreate->SetCallbackSupportStatus(
+          KIM::COMPUTE_CALLBACK_NAME::ProcessDEDrTerm,
+          KIM::SUPPORT_STATUS::optional)
+      || modelComputeArgumentsCreate->SetCallbackSupportStatus(
+          KIM::COMPUTE_CALLBACK_NAME::ProcessD2EDr2Term,
+          KIM::SUPPORT_STATUS::optional);
+
+  return error;
+}
+
+//******************************************************************************
+#include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::RegisterKIMParameters(
     KIM::ModelDriverCreate * const modelDriverCreate)
 {
@@ -572,11 +622,17 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
 
   // register the Destroy(), Refresh(), and Compute() functions
   error = modelDriverCreate->SetDestroyPointer(
-          KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Destroy))
+      KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Destroy))
       || modelDriverCreate->SetRefreshPointer(
           KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Refresh))
       || modelDriverCreate->SetComputePointer(
-          KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Compute));
+          KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Compute))
+      || modelDriverCreate->SetComputeArgumentsCreatePointer(
+          KIM::LANGUAGE_NAME::cpp,
+          (KIM::func*) &(StillingerWeber::ComputeArgumentsCreate))
+      || modelDriverCreate->SetComputeArgumentsDestroyPointer(
+          KIM::LANGUAGE_NAME::cpp,
+          (KIM::func*) &(StillingerWeber::ComputeArgumentsDestroy));
 
   return error;
 }
@@ -630,15 +686,15 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
 }
 
 //******************************************************************************
-#include "KIM_ModelComputeLogMacros.hpp"
+#include "KIM_ModelComputeArgumentsLogMacros.hpp"
 int StillingerWeberImplementation::SetComputeMutableValues(
-    KIM::ModelCompute const * const modelCompute,
+    KIM::ModelComputeArguments const * const modelComputeArguments,
     bool& isComputeProcess_dEdr,
     bool& isComputeProcess_d2Edr2,
     bool& isComputeEnergy,
     bool& isComputeForces,
     bool& isComputeParticleEnergy,
-    int const*& particleSpecies,
+    int const*& particleSpeciesCodes,
     int const*& particleContributing,
     VectorOfSizeDIM const*& coordinates,
     double*& energy,
@@ -651,10 +707,12 @@ int StillingerWeberImplementation::SetComputeMutableValues(
   int compProcess_dEdr;
   int compProcess_d2Edr2;
 
-  modelCompute->IsCallbackPresent(KIM::CALLBACK_NAME::ProcessDEDrTerm,
-                                  &compProcess_dEdr);
-  modelCompute->IsCallbackPresent(KIM::CALLBACK_NAME::ProcessD2EDr2Term,
-                                  &compProcess_d2Edr2);
+  modelComputeArguments->IsCallbackPresent(
+      KIM::COMPUTE_CALLBACK_NAME::ProcessDEDrTerm,
+      &compProcess_dEdr);
+  modelComputeArguments->IsCallbackPresent(
+      KIM::COMPUTE_CALLBACK_NAME::ProcessD2EDr2Term,
+      &compProcess_d2Edr2);
 
   isComputeProcess_dEdr = compProcess_dEdr;
   isComputeProcess_d2Edr2 = compProcess_d2Edr2;
@@ -662,26 +720,26 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 
   int const* numberOfParticles;
   ier =
-      modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::numberOfParticles,
+      modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::numberOfParticles,
           &numberOfParticles)
-      || modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::particleSpeciesCodes,
-          &particleSpecies)
-      || modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::particleContributing,
+      || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::particleSpeciesCodes,
+          &particleSpeciesCodes)
+      || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::particleContributing,
           &particleContributing)
-      || modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::coordinates,
+      || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::coordinates,
           (double const ** const) &coordinates)
-      || modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::partialEnergy,
+      || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::partialEnergy,
           &energy)
-      || modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::partialParticleEnergy,
+      || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
           &particleEnergy)
-      || modelCompute->GetArgumentPointer(
-          KIM::ARGUMENT_NAME::partialForces,
+      || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::partialForces,
           (double const ** const) &forces);
   if (ier)
   {
@@ -703,6 +761,7 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 
 //******************************************************************************
 // Assume that the particle species interge code starts from 0
+#include "KIM_ModelComputeLogMacros.hpp"
 int StillingerWeberImplementation::CheckParticleSpecies(
     KIM::ModelCompute const * const modelCompute,
     int const* const particleSpecies)

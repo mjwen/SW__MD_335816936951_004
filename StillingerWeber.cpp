@@ -147,10 +147,41 @@ int StillingerWeber::Refresh(
 
 //******************************************************************************
 // static member function
-int StillingerWeber::Compute(KIM::ModelCompute const * const modelCompute)
+int StillingerWeber::Compute(
+    KIM::ModelCompute const * const modelCompute,
+    KIM::ModelComputeArguments const * const modelComputeArguments)
+
 {
   StillingerWeber * modelObject;
   modelCompute->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
 
-  return modelObject->implementation_->Compute(modelCompute);
+  return modelObject->implementation_->Compute(modelCompute, modelComputeArguments);
 }
+
+
+//******************************************************************************
+// static member function
+int StillingerWeber::ComputeArgumentsCreate(
+    KIM::ModelCompute const * const modelCompute,
+    KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate)
+{
+  StillingerWeber * modelObject;
+  modelCompute->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
+
+  return modelObject->implementation_
+      ->ComputeArgumentsCreate(modelComputeArgumentsCreate);
+}
+
+//******************************************************************************
+// static member function
+int StillingerWeber::ComputeArgumentsDestroy(
+    KIM::ModelCompute const * const modelCompute,
+    KIM::ModelComputeArgumentsDestroy * const modelComputeArgumentsDestroy)
+{
+  StillingerWeber * modelObject;
+  modelCompute->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
+
+  return modelObject->implementation_
+      ->ComputeArgumentsDestroy(modelComputeArgumentsDestroy);
+}
+
