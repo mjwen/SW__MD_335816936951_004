@@ -445,7 +445,6 @@ void StillingerWeberImplementation::CloseParameterFiles(
 void StillingerWeberImplementation::AllocateFreeParameterMemory()
 { // allocate memory for data
   cutoff_ = new double[numberUniqueSpeciesPairs_];
-  sigma_ = new double[numberUniqueSpeciesPairs_];
   A_ = new double[numberUniqueSpeciesPairs_];
   B_ = new double[numberUniqueSpeciesPairs_];
   p_ = new double[numberUniqueSpeciesPairs_];
