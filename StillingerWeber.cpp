@@ -23,8 +23,6 @@
 // All rights reserved.
 //
 // Contributors:
-//    Ryan S. Elliott
-//    Andrew Akerson
 //    Mingjian Wen
 
 
@@ -150,14 +148,13 @@ int StillingerWeber::Refresh(
 int StillingerWeber::Compute(
     KIM::ModelCompute const * const modelCompute,
     KIM::ModelComputeArguments const * const modelComputeArguments)
-
 {
   StillingerWeber * modelObject;
   modelCompute->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
 
   return modelObject->implementation_->Compute(modelCompute, modelComputeArguments);
-}
 
+}
 
 //******************************************************************************
 // static member function

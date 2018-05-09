@@ -129,15 +129,16 @@ StillingerWeberImplementation::~StillingerWeberImplementation()
 { // note: it is ok to delete a null pointer and we have ensured that
   // everything is initialized to null
 
-  delete [] A_;
-  delete [] B_;
-  delete [] p_;
-  delete [] q_;
-  delete [] sigma_;
-  delete [] lambda_;
-  delete [] gamma_;
-  delete [] costheta0_;
-  delete [] cutoff_;
+  Deallocate1DArray(A_);
+  Deallocate1DArray(B_);
+  Deallocate1DArray(p_);
+  Deallocate1DArray(q_);
+  Deallocate1DArray(sigma_);
+  Deallocate1DArray(lambda_);
+  Deallocate1DArray(gamma_);
+  Deallocate1DArray(costheta0_);
+  Deallocate1DArray(cutoff_);
+
   Deallocate2DArray(A_2D_);
   Deallocate2DArray(B_2D_);
   Deallocate2DArray(p_2D_);
@@ -444,15 +445,15 @@ void StillingerWeberImplementation::CloseParameterFiles(
 //******************************************************************************
 void StillingerWeberImplementation::AllocateFreeParameterMemory()
 { // allocate memory for data
-  cutoff_ = new double[numberUniqueSpeciesPairs_];
-  A_ = new double[numberUniqueSpeciesPairs_];
-  B_ = new double[numberUniqueSpeciesPairs_];
-  p_ = new double[numberUniqueSpeciesPairs_];
-  q_ = new double[numberUniqueSpeciesPairs_];
-  sigma_ = new double[numberUniqueSpeciesPairs_];
-  lambda_ = new double[numberUniqueSpeciesPairs_];
-  gamma_ = new double[numberUniqueSpeciesPairs_];
-  costheta0_ = new double[numberUniqueSpeciesPairs_];
+  AllocateAndInitialize1DArray(cutoff_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(A_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(B_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(p_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(q_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(sigma_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(lambda_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(gamma_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray(costheta0_, numberUniqueSpeciesPairs_);
 
   AllocateAndInitialize2DArray(cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
   AllocateAndInitialize2DArray(A_2D_, numberModelSpecies_, numberModelSpecies_);
@@ -1104,3 +1105,24 @@ void Deallocate2DArray(double**& arrayPtr)
   // nullify pointer
   arrayPtr = 0;
 }
+
+
+//******************************************************************************
+void AllocateAndInitialize1DArray(double*& arrayPtr, int const extentZero)
+{ // allocate memory and set pointers
+  arrayPtr = new double[extentZero];
+  for (int i = 0; i < extentZero; ++i) {
+    arrayPtr[i] = 0.0;
+  }
+
+}
+
+//******************************************************************************
+void Deallocate1DArray(double*& arrayPtr)
+{ // deallocate memory
+  delete [] arrayPtr;
+
+  // nullify pointer
+  arrayPtr = 0;
+}
+

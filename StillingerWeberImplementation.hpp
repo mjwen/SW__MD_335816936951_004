@@ -24,10 +24,6 @@
 //
 // Contributors:
 //    Mingjian Wen
-//    Ryan S. Elliott
-//    Stephen M. Whalen
-//    Andrew Akerson
-
 
 
 #ifndef STILLINGER_WEBER_IMPLEMENTATION_HPP_
@@ -61,6 +57,8 @@ typedef double VectorOfSizeDIM[DIMENSION];
 void AllocateAndInitialize2DArray(double**& arrayPtr, int const extentZero,
                                   int const extentOne);
 void Deallocate2DArray(double**& arrayPtr);
+void AllocateAndInitialize1DArray(double*& arrayPtr, int const extentZero);
+void Deallocate1DArray(double*& arrayPtr);
 
 //==============================================================================
 //
@@ -194,20 +192,22 @@ class StillingerWeberImplementation
   // Related to Refresh()
   template<class ModelObj>
   int SetRefreshMutableValues(ModelObj * const modelObj);
+
   //
   // Related to Compute()
-  int SetComputeMutableValues(KIM::ModelComputeArguments const * const modelCompute,
-                              bool& isComputeProcess_dEdr,
-                              bool& isComputeProcess_d2Edr2,
-                              bool& isComputeEnergy,
-                              bool& isComputeForces,
-                              bool& isComputeParticleEnergy,
-                              int const*& particleSpecies,
-                              int const*& particleContributing,
-                              VectorOfSizeDIM const*& coordinates,
-                              double*& energy,
-                              double*& particleEnergy,
-                              VectorOfSizeDIM*& forces);
+  int SetComputeMutableValues(
+      KIM::ModelComputeArguments const * const modelCompute,
+      bool& isComputeProcess_dEdr,
+      bool& isComputeProcess_d2Edr2,
+      bool& isComputeEnergy,
+      bool& isComputeForces,
+      bool& isComputeParticleEnergy,
+      int const*& particleSpecies,
+      int const*& particleContributing,
+      VectorOfSizeDIM const*& coordinates,
+      double*& energy,
+      double*& particleEnergy,
+      VectorOfSizeDIM*& forces);
   int CheckParticleSpecies(KIM::ModelCompute const * const modelCompute,
                            int const* const particleSpecies) const;
   int GetComputeIndex(const bool& isComputeProcess_dEdr,
