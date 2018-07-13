@@ -37,7 +37,7 @@
 #include "StillingerWeberImplementation.hpp"
 #include "KIM_ModelDriverHeaders.hpp"
 
-#define MAXLINE 1024
+#define MAXLINE    1024
 
 
 //==============================================================================
@@ -49,14 +49,14 @@
 //******************************************************************************
 #include "KIM_ModelDriverCreateLogMacros.hpp"
 StillingerWeberImplementation::StillingerWeberImplementation(
-    KIM::ModelDriverCreate * const modelDriverCreate,
-    KIM::LengthUnit const requestedLengthUnit,
-    KIM::EnergyUnit const requestedEnergyUnit,
-    KIM::ChargeUnit const requestedChargeUnit,
-    KIM::TemperatureUnit const requestedTemperatureUnit,
-    KIM::TimeUnit const requestedTimeUnit,
-    int * const ier)
-: numberModelSpecies_(0),
+  KIM::ModelDriverCreate* const modelDriverCreate,
+  KIM::LengthUnit const requestedLengthUnit,
+  KIM::EnergyUnit const requestedEnergyUnit,
+  KIM::ChargeUnit const requestedChargeUnit,
+  KIM::TemperatureUnit const requestedTemperatureUnit,
+  KIM::TimeUnit const requestedTimeUnit,
+  int* const ier)
+  : numberModelSpecies_(0),
   numberUniqueSpeciesPairs_(0),
   cutoff_(NULL),
   A_(NULL),
@@ -83,40 +83,56 @@ StillingerWeberImplementation::StillingerWeberImplementation(
 {
   FILE* parameterFilePointers[MAX_PARAMETER_FILES];
   int numberParameterFiles;
+
   modelDriverCreate->GetNumberOfParameterFiles(&numberParameterFiles);
   *ier = OpenParameterFiles(modelDriverCreate, numberParameterFiles,
-                            parameterFilePointers);
-  if (*ier) return;
+      parameterFilePointers);
+  if (*ier) {
+    return;
+  }
 
   *ier = ProcessParameterFiles(modelDriverCreate, numberParameterFiles,
       parameterFilePointers);
   CloseParameterFiles(numberParameterFiles, parameterFilePointers);
-  if (*ier) return;
+  if (*ier) {
+    return;
+  }
 
   *ier = ConvertUnits(modelDriverCreate,
-                      requestedLengthUnit,
-                      requestedEnergyUnit,
-                      requestedChargeUnit,
-                      requestedTemperatureUnit,
-                      requestedTimeUnit);
-  if (*ier) return;
+      requestedLengthUnit,
+      requestedEnergyUnit,
+      requestedChargeUnit,
+      requestedTemperatureUnit,
+      requestedTimeUnit);
+  if (*ier) {
+    return;
+  }
 
   *ier = SetRefreshMutableValues(modelDriverCreate);
-  if (*ier) return;
+  if (*ier) {
+    return;
+  }
 
   *ier = RegisterKIMModelSettings(modelDriverCreate);
-  if (*ier) return;
+  if (*ier) {
+    return;
+  }
 
   *ier = RegisterKIMParameters(modelDriverCreate);
-  if (*ier) return;
+  if (*ier) {
+    return;
+  }
 
   *ier = RegisterKIMFunctions(modelDriverCreate);
-  if (*ier) return;
+  if (*ier) {
+    return;
+  }
 
   // everything is good
   *ier = false;
   return;
 }
+
 
 //******************************************************************************
 StillingerWeberImplementation::~StillingerWeberImplementation()
@@ -144,15 +160,18 @@ StillingerWeberImplementation::~StillingerWeberImplementation()
   Deallocate2DArray(cutoffSq_2D_);
 }
 
+
 //******************************************************************************
 #include "KIM_ModelRefreshLogMacros.hpp"
 int StillingerWeberImplementation::Refresh(
-    KIM::ModelRefresh * const modelRefresh)
+    KIM::ModelRefresh* const modelRefresh)
 {
   int ier;
 
   ier = SetRefreshMutableValues(modelRefresh);
-  if (ier) return ier;
+  if (ier) {
+    return ier;
+  }
 
   // nothing else to do for this case
 
@@ -161,10 +180,11 @@ int StillingerWeberImplementation::Refresh(
   return ier;
 }
 
+
 //******************************************************************************
 int StillingerWeberImplementation::Compute(
-    KIM::ModelCompute const * const modelCompute,
-    KIM::ModelComputeArguments const * const modelComputeArguments)
+    KIM::ModelCompute const* const modelCompute,
+    KIM::ModelComputeArguments const* const modelComputeArguments)
 {
   int ier;
 
@@ -190,13 +210,16 @@ int StillingerWeberImplementation::Compute(
   VectorOfSizeDIM* forces = NULL;
   VectorOfSizeSix* virial = NULL;
   VectorOfSizeSix* particleVirial = NULL;
+
   ier = SetComputeMutableValues(modelComputeArguments,
       isComputeProcess_dEdr, isComputeProcess_d2Edr2,
       isComputeEnergy, isComputeForces, isComputeParticleEnergy,
       isComputeVirial, isComputeParticleVirial,
       particleSpeciesCodes, particleContributing, coordinates,
       energy, forces, particleEnergy, virial, particleVirial);
-  if (ier) return ier;
+  if (ier) {
+    return ier;
+  }
 
   // Skip this check for efficiency
   //
@@ -209,15 +232,16 @@ int StillingerWeberImplementation::Compute(
 }
 
 
-
 //******************************************************************************
 int StillingerWeberImplementation::ComputeArgumentsCreate(
-    KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate) const
+    KIM::ModelComputeArgumentsCreate* const modelComputeArgumentsCreate) const
 {
   int ier;
 
   ier = RegisterKIMComputeArgumentsSettings(modelComputeArgumentsCreate);
-  if (ier) return ier;
+  if (ier) {
+    return ier;
+  }
 
   // nothing else to do for this case
 
@@ -226,10 +250,11 @@ int StillingerWeberImplementation::ComputeArgumentsCreate(
   return ier;
 }
 
+
 //******************************************************************************
 int StillingerWeberImplementation::ComputeArgumentsDestroy(
-    KIM::ModelComputeArgumentsDestroy * const modelComputeArgumentsDestroy)
-  const
+    KIM::ModelComputeArgumentsDestroy* const modelComputeArgumentsDestroy)
+const
 {
   int ier;
 
@@ -239,8 +264,6 @@ int StillingerWeberImplementation::ComputeArgumentsDestroy(
   ier = false;
   return ier;
 }
-
-
 
 
 //==============================================================================
@@ -255,35 +278,36 @@ void StillingerWeberImplementation::AllocatePrivateParameterMemory()
   // nothing to do for this case
 }
 
+
 //******************************************************************************
 void StillingerWeberImplementation::AllocateParameterMemory()
 { // allocate memory for data
-  AllocateAndInitialize1DArray<double>(cutoff_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(A_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(B_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(p_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(q_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(sigma_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(lambda_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(gamma_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray<double>(costheta0_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (cutoff_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (A_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (B_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (p_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (q_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (sigma_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (lambda_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (gamma_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double> (costheta0_, numberUniqueSpeciesPairs_);
 
-  AllocateAndInitialize2DArray<double>(cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(A_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(B_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(p_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(q_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(sigma_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(lambda_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(gamma_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray<double>(costheta0_2D_, numberModelSpecies_, numberModelSpecies_);
-
+  AllocateAndInitialize2DArray<double> (cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (A_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (B_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (p_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (q_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (sigma_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (lambda_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (gamma_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double> (costheta0_2D_, numberModelSpecies_, numberModelSpecies_);
 }
+
 
 //******************************************************************************
 #include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::OpenParameterFiles(
-    KIM::ModelDriverCreate * const modelDriverCreate,
+    KIM::ModelDriverCreate* const modelDriverCreate,
     int const numberParameterFiles,
     FILE* parameterFilePointers[MAX_PARAMETER_FILES])
 {
@@ -296,7 +320,7 @@ int StillingerWeberImplementation::OpenParameterFiles(
   }
 
   for (int i = 0; i < numberParameterFiles; ++i) {
-    std::string const * paramFileName;
+    std::string const* paramFileName;
     ier = modelDriverCreate->GetParameterFileName(i, &paramFileName);
     if (ier) {
       LOG_ERROR("Unable to get parameter file name");
@@ -307,8 +331,8 @@ int StillingerWeberImplementation::OpenParameterFiles(
     if (parameterFilePointers[i] == 0) {
       char message[MAXLINE];
       sprintf(message,
-              "StillingerWeber parameter file number %d cannot be opened",
-              i);
+          "StillingerWeber parameter file number %d cannot be opened",
+          i);
       ier = true;
       LOG_ERROR(message);
       for (int j = i - 1; i <= 0; --i) {
@@ -323,17 +347,18 @@ int StillingerWeberImplementation::OpenParameterFiles(
   return ier;
 }
 
+
 //******************************************************************************
 #include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::ProcessParameterFiles(
-    KIM::ModelDriverCreate * const modelDriverCreate,
+    KIM::ModelDriverCreate* const modelDriverCreate,
     int const numberParameterFiles,
     FILE* const parameterFilePointers[MAX_PARAMETER_FILES])
 {
   int N, ier;
   int endOfFileFlag = 0;
   char spec1[MAXLINE], spec2[MAXLINE], nextLine[MAXLINE];
-  int iIndex, jIndex , indx;
+  int iIndex, jIndex, indx;
   double next_A, next_B, next_p, next_q, next_sigma, next_lambda, next_gamma;
   double next_costheta0, next_cutoff;
 
@@ -347,17 +372,17 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     return ier;
   }
   numberModelSpecies_ = N;
-  numberUniqueSpeciesPairs_ = ((numberModelSpecies_+1)*numberModelSpecies_)/2;
+  numberUniqueSpeciesPairs_ = ((numberModelSpecies_ + 1) * numberModelSpecies_) / 2;
   AllocateParameterMemory();
 
   // set all values of p_ to -1.1e10 for later check that we have read all params
-  for (int i = 0; i < ((N+1)*N/2); i++) {
-    p_[i]  = -1.1e10;
+  for (int i = 0; i < ((N + 1) * N / 2); i++) {
+    p_[i] = -1.1e10;
   }
 
   // keep track of known species
   std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>
-      modelSpeciesMap;
+  modelSpeciesMap;
   int index = 0;   // species code integer code starting from 0
 
   // Read and process data lines
@@ -365,8 +390,8 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   while (endOfFileFlag == 0)
   {
     ier = sscanf(nextLine, "%s %s %lg %lg %lg %lg %lg %lg %lg %lg %lg",
-                 spec1, spec2, &next_A, &next_B, &next_p, &next_q, &next_sigma,
-                 &next_lambda, &next_gamma, &next_costheta0, &next_cutoff);
+        spec1, spec2, &next_A, &next_B, &next_p, &next_q, &next_sigma,
+        &next_lambda, &next_gamma, &next_costheta0, &next_cutoff);
     if (ier != 11) {
       sprintf(nextLine, "error reading lines of the parameter file");
       LOG_ERROR(nextLine);
@@ -379,13 +404,15 @@ int StillingerWeberImplementation::ProcessParameterFiles(
 
     // check for new species
     std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>::
-        const_iterator iIter = modelSpeciesMap.find(specName1);
+    const_iterator iIter = modelSpeciesMap.find(specName1);
     if (iIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName1] = index;
       modelSpeciesCodeList_.push_back(index);
 
       ier = modelDriverCreate->SetSpeciesCode(specName1, index);
-      if (ier) return ier;
+      if (ier) {
+        return ier;
+      }
       iIndex = index;
       index++;
     }
@@ -394,13 +421,15 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     }
 
     std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>::
-        const_iterator jIter = modelSpeciesMap.find(specName2);
+    const_iterator jIter = modelSpeciesMap.find(specName2);
     if (jIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName2] = index;
       modelSpeciesCodeList_.push_back(index);
 
       ier = modelDriverCreate->SetSpeciesCode(specName2, index);
-      if (ier) return ier;
+      if (ier) {
+        return ier;
+      }
       jIndex = index;
       index++;
     }
@@ -409,10 +438,10 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     }
 
     if (iIndex >= jIndex) {
-      indx = jIndex*N + iIndex - (jIndex*jIndex + jIndex)/2;
+      indx = jIndex * N + iIndex - (jIndex * jIndex + jIndex) / 2;
     }
     else {
-      indx = iIndex*N + jIndex - (iIndex*iIndex + iIndex)/2;
+      indx = iIndex * N + jIndex - (iIndex * iIndex + iIndex) / 2;
     }
     A_[indx] = next_A;
     B_[indx] = next_B;
@@ -428,10 +457,10 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   }
 
   // check we have read all parameters
-  for (int i = 0; i < ((N+1)*N/2); i++) {
+  for (int i = 0; i < ((N + 1) * N / 2); i++) {
     if (p_[i] < -1e10) {
       sprintf(nextLine, "error: not enough parameter data.\n");
-      sprintf(nextLine, "%d species requires %d data lines.", N, (N+1)*N/2);
+      sprintf(nextLine, "%d species requires %d data lines.", N, (N + 1) * N / 2);
       LOG_ERROR(nextLine);
       return true;
     }
@@ -442,42 +471,43 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   return ier;
 }
 
+
 //******************************************************************************
 void StillingerWeberImplementation::getNextDataLine(
     FILE* const filePtr, char* nextLinePtr, int const maxSize,
-    int *endOfFileFlag)
+    int* endOfFileFlag)
 {
   do
   {
-    if(fgets(nextLinePtr, maxSize, filePtr) == NULL) {
+    if (fgets(nextLinePtr, maxSize, filePtr) == NULL) {
       *endOfFileFlag = 1;
       break;
     }
 
     while ((nextLinePtr[0] == ' ' || nextLinePtr[0] == '\t') ||
-           (nextLinePtr[0] == '\n' || nextLinePtr[0] == '\r' ))
+           (nextLinePtr[0] == '\n' || nextLinePtr[0] == '\r'))
     {
       nextLinePtr = (nextLinePtr + 1);
     }
-  }
-
-  while ((strncmp("#", nextLinePtr, 1) == 0) || (strlen(nextLinePtr) == 0));
+  } while ((strncmp("#", nextLinePtr, 1) == 0) || (strlen(nextLinePtr) == 0));
 }
+
 
 //******************************************************************************
 void StillingerWeberImplementation::CloseParameterFiles(
     int const numberParameterFiles,
     FILE* const parameterFilePointers[MAX_PARAMETER_FILES])
 {
-  for (int i = 0; i < numberParameterFiles; ++i)
+  for (int i = 0; i < numberParameterFiles; ++i) {
     fclose(parameterFilePointers[i]);
+  }
 }
 
 
 //******************************************************************************
 #include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::ConvertUnits(
-    KIM::ModelDriverCreate * const modelDriverCreate,
+    KIM::ModelDriverCreate* const modelDriverCreate,
     KIM::LengthUnit const requestedLengthUnit,
     KIM::EnergyUnit const requestedEnergyUnit,
     KIM::ChargeUnit const requestedChargeUnit,
@@ -495,6 +525,7 @@ int StillingerWeberImplementation::ConvertUnits(
 
   // changing units of sigma, gamma, and cutoff
   double convertLength = 1.0;
+
   ier = modelDriverCreate->ConvertUnit(
       fromLength, fromEnergy, fromCharge, fromTemperature, fromTime,
       requestedLengthUnit, requestedEnergyUnit, requestedChargeUnit,
@@ -551,9 +582,10 @@ int StillingerWeberImplementation::ConvertUnits(
   return ier;
 }
 
+
 //******************************************************************************
 int StillingerWeberImplementation::RegisterKIMModelSettings(
-    KIM::ModelDriverCreate * const modelDriverCreate) const
+    KIM::ModelDriverCreate* const modelDriverCreate) const
 {
   // register numbering
   int error = modelDriverCreate->SetModelNumbering(KIM::NUMBERING::zeroBased);
@@ -561,61 +593,74 @@ int StillingerWeberImplementation::RegisterKIMModelSettings(
   return error;
 }
 
+
 //******************************************************************************
 #include "KIM_ModelComputeArgumentsCreateLogMacros.hpp"
 int StillingerWeberImplementation::RegisterKIMComputeArgumentsSettings(
-    KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate) const
+    KIM::ModelComputeArgumentsCreate* const modelComputeArgumentsCreate) const
 {
   // register arguments
   LOG_INFORMATION("Register argument supportStatus");
 
   int error =
-      modelComputeArgumentsCreate->SetArgumentSupportStatus(
-          KIM::COMPUTE_ARGUMENT_NAME::partialEnergy,
-          KIM::SUPPORT_STATUS::optional)
-      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
-          KIM::COMPUTE_ARGUMENT_NAME::partialForces,
-          KIM::SUPPORT_STATUS::optional)
-      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
-          KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
-          KIM::SUPPORT_STATUS::optional)
-      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
-          KIM::COMPUTE_ARGUMENT_NAME::partialVirial,
-          KIM::SUPPORT_STATUS::optional)
-      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
-          KIM::COMPUTE_ARGUMENT_NAME::partialParticleVirial,
-          KIM::SUPPORT_STATUS::optional);
+    modelComputeArgumentsCreate->SetArgumentSupportStatus(
+        KIM::COMPUTE_ARGUMENT_NAME::partialEnergy,
+        KIM::SUPPORT_STATUS::optional) ||
+    modelComputeArgumentsCreate->SetArgumentSupportStatus(
+        KIM::COMPUTE_ARGUMENT_NAME::partialForces,
+        KIM::SUPPORT_STATUS::optional) ||
+    modelComputeArgumentsCreate->SetArgumentSupportStatus(
+        KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
+        KIM::SUPPORT_STATUS::optional) ||
+    modelComputeArgumentsCreate->SetArgumentSupportStatus(
+        KIM::COMPUTE_ARGUMENT_NAME::partialVirial,
+        KIM::SUPPORT_STATUS::optional) ||
+    modelComputeArgumentsCreate->SetArgumentSupportStatus(
+        KIM::COMPUTE_ARGUMENT_NAME::partialParticleVirial,
+        KIM::SUPPORT_STATUS::optional);
 
   // register callbacks
   LOG_INFORMATION("Register callback supportStatus");
-  error = error
-      || modelComputeArgumentsCreate->SetCallbackSupportStatus(
-          KIM::COMPUTE_CALLBACK_NAME::ProcessDEDrTerm,
-          KIM::SUPPORT_STATUS::optional)
-      || modelComputeArgumentsCreate->SetCallbackSupportStatus(
-          KIM::COMPUTE_CALLBACK_NAME::ProcessD2EDr2Term,
-          KIM::SUPPORT_STATUS::optional);
+  error =
+    error ||
+    modelComputeArgumentsCreate->SetCallbackSupportStatus(
+        KIM::COMPUTE_CALLBACK_NAME::ProcessDEDrTerm,
+        KIM::SUPPORT_STATUS::optional) ||
+    modelComputeArgumentsCreate->SetCallbackSupportStatus(
+        KIM::COMPUTE_CALLBACK_NAME::ProcessD2EDr2Term,
+        KIM::SUPPORT_STATUS::optional);
 
   return error;
 }
 
+
 //******************************************************************************
 #include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::RegisterKIMParameters(
-    KIM::ModelDriverCreate * const modelDriverCreate)
+    KIM::ModelDriverCreate* const modelDriverCreate)
 {
   int ier = false;
 
   // publish parameters (order is important)
-  ier = modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, A_, "A")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, B_, "B")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, p_, "p")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, q_, "q")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, sigma_, "sigma")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, lambda_, "lambda")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, gamma_, "gamma")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, costheta0_, "costheta0")
-     || modelDriverCreate->SetParameterPointer(numberUniqueSpeciesPairs_, cutoff_, "cutoff");
+  ier =
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, A_, "A") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, B_, "B") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, p_, "p") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, q_, "q") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, sigma_, "sigma") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, lambda_, "lambda") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, gamma_, "gamma") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, costheta0_, "costheta0") ||
+    modelDriverCreate->SetParameterPointer(
+        numberUniqueSpeciesPairs_, cutoff_, "cutoff");
   if (ier) {
     LOG_ERROR("set_parameters");
     return ier;
@@ -626,34 +671,40 @@ int StillingerWeberImplementation::RegisterKIMParameters(
   return ier;
 }
 
+
 //******************************************************************************
 int StillingerWeberImplementation::RegisterKIMFunctions(
-    KIM::ModelDriverCreate * const modelDriverCreate)
-    const
+    KIM::ModelDriverCreate* const modelDriverCreate)
+const
 {
   int error;
 
   // register the Destroy(), Refresh(), and Compute() functions
-  error = modelDriverCreate->SetDestroyPointer(
-      KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Destroy))
-      || modelDriverCreate->SetRefreshPointer(
-          KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Refresh))
-      || modelDriverCreate->SetComputePointer(
-          KIM::LANGUAGE_NAME::cpp, (KIM::func*) &(StillingerWeber::Compute))
-      || modelDriverCreate->SetComputeArgumentsCreatePointer(
-          KIM::LANGUAGE_NAME::cpp,
-          (KIM::func*) &(StillingerWeber::ComputeArgumentsCreate))
-      || modelDriverCreate->SetComputeArgumentsDestroyPointer(
-          KIM::LANGUAGE_NAME::cpp,
-          (KIM::func*) &(StillingerWeber::ComputeArgumentsDestroy));
+  error =
+    modelDriverCreate->SetDestroyPointer(
+        KIM::LANGUAGE_NAME::cpp,
+        (KIM::func*)&(StillingerWeber::Destroy)) ||
+    modelDriverCreate->SetRefreshPointer(
+        KIM::LANGUAGE_NAME::cpp,
+        (KIM::func*)&(StillingerWeber::Refresh)) ||
+    modelDriverCreate->SetComputePointer(
+        KIM::LANGUAGE_NAME::cpp,
+        (KIM::func*)&(StillingerWeber::Compute)) ||
+    modelDriverCreate->SetComputeArgumentsCreatePointer(
+        KIM::LANGUAGE_NAME::cpp,
+        (KIM::func*)&(StillingerWeber::ComputeArgumentsCreate)) ||
+    modelDriverCreate->SetComputeArgumentsDestroyPointer(
+        KIM::LANGUAGE_NAME::cpp,
+        (KIM::func*)&(StillingerWeber::ComputeArgumentsDestroy));
 
   return error;
 }
 
+
 //******************************************************************************
 template<class ModelObj>
 int StillingerWeberImplementation::SetRefreshMutableValues(
-    ModelObj * const modelObj)
+    ModelObj* const modelObj)
 { // use (possibly) new values of parameters to compute other quantities
   // NOTE: This function is templated because it's called with both a
   //       modelDriverCreate object during initialization and with a
@@ -662,8 +713,8 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
 
   // update parameters
   for (int i = 0; i < numberModelSpecies_; ++i) {
-    for (int j = 0; j <= i ; ++j) {
-      int const index = j*numberModelSpecies_ + i - (j*j + j)/2;
+    for (int j = 0; j <= i; ++j) {
+      int const index = j * numberModelSpecies_ + i - (j * j + j) / 2;
       A_2D_[i][j] = A_2D_[j][i] = A_[index];
       B_2D_[i][j] = B_2D_[j][i] = B_[index];
       p_2D_[i][j] = p_2D_[j][i] = p_[index];
@@ -701,10 +752,11 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
   return ier;
 }
 
+
 //******************************************************************************
 #include "KIM_ModelComputeArgumentsLogMacros.hpp"
 int StillingerWeberImplementation::SetComputeMutableValues(
-    KIM::ModelComputeArguments const * const modelComputeArguments,
+    KIM::ModelComputeArguments const* const modelComputeArguments,
     bool& isComputeProcess_dEdr,
     bool& isComputeProcess_d2Edr2,
     bool& isComputeEnergy,
@@ -739,35 +791,34 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 
   int const* numberOfParticles;
   ier =
-      modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::numberOfParticles,
-          &numberOfParticles)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::particleSpeciesCodes,
-          &particleSpeciesCodes)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::particleContributing,
-          &particleContributing)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::coordinates,
-          (double const ** const) &coordinates)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::partialEnergy,
-          &energy)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::partialForces,
-          (double const ** const) &forces)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
-          &particleEnergy)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::partialVirial,
-          (double const ** const) &virial)
-      || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::partialParticleVirial,
-          (double const ** const) &particleVirial);
-  if (ier)
-  {
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::numberOfParticles,
+        &numberOfParticles) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::particleSpeciesCodes,
+        &particleSpeciesCodes) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::particleContributing,
+        &particleContributing) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::coordinates,
+        (double const** const)&coordinates) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::partialEnergy,
+        &energy) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::partialForces,
+        (double const** const)&forces) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
+        &particleEnergy) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::partialVirial,
+        (double const** const)&virial) ||
+    modelComputeArguments->GetArgumentPointer(
+        KIM::COMPUTE_ARGUMENT_NAME::partialParticleVirial,
+        (double const** const)&particleVirial);
+  if (ier) {
     LOG_ERROR("GetArgumentPointer");
     return ier;
   }
@@ -786,15 +837,17 @@ int StillingerWeberImplementation::SetComputeMutableValues(
   return ier;
 }
 
+
 //******************************************************************************
 // Assume that the particle species interge code starts from 0
 #include "KIM_ModelComputeLogMacros.hpp"
 int StillingerWeberImplementation::CheckParticleSpeciesCodes(
-    KIM::ModelCompute const * const modelCompute,
+    KIM::ModelCompute const* const modelCompute,
     int const* const particleSpecies)
-    const
+const
 {
   int ier;
+
   for (int i = 0; i < cachedNumberOfParticles_; ++i) {
     if ((particleSpecies[i] < 0) || (particleSpecies[i] >= numberModelSpecies_)) {
       ier = true;
@@ -807,6 +860,7 @@ int StillingerWeberImplementation::CheckParticleSpeciesCodes(
   ier = false;
   return ier;
 }
+
 
 //******************************************************************************
 int StillingerWeberImplementation::GetComputeIndex(
@@ -831,27 +885,27 @@ int StillingerWeberImplementation::GetComputeIndex(
 
   // processdE
   index += (int(isComputeProcess_dEdr))
-      * processd2E * energy * force * particleEnergy * virial * particleVirial;
+           * processd2E * energy * force * particleEnergy * virial * particleVirial;
 
   // processd2E
   index += (int(isComputeProcess_d2Edr2))
-      * energy * force * particleEnergy * virial * particleVirial;
+           * energy * force * particleEnergy * virial * particleVirial;
 
   // energy
   index += (int(isComputeEnergy))
-      * force * particleEnergy * virial * particleVirial;
+           * force * particleEnergy * virial * particleVirial;
 
   // force
   index += (int(isComputeForces))
-      * particleEnergy * virial * particleVirial;
+           * particleEnergy * virial * particleVirial;
 
   // particleEnergy
   index += (int(isComputeParticleEnergy))
-      * virial * particleVirial;
+           * virial * particleVirial;
 
   // virial
   index += (int(isComputeVirial))
-      * particleVirial;
+           * particleVirial;
 
   // particleVirial
   index += (int(isComputeParticleVirial));
@@ -876,15 +930,14 @@ void StillingerWeberImplementation::CalcPhiTwo(int const ispec, int const jspec,
   double const sigma = sigma_2D_[ispec][jspec];
   double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
 
-  double r_cap = r/sigma;
+  double r_cap = r / sigma;
 
   if (r >= cutoff) {
     phi = 0.0;
   }
   else {
-    phi = A * (B*pow(r_cap,-p) - pow(r_cap,-q)) * exp(sigma/(r - cutoff));
+    phi = A * (B * pow(r_cap, -p) - pow(r_cap, -q)) * exp(sigma / (r - cutoff));
   }
-
 }
 
 
@@ -899,20 +952,19 @@ void StillingerWeberImplementation::CalcPhiDphiTwo(int const ispec, int const js
   double const sigma = sigma_2D_[ispec][jspec];
   double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
 
-  double r_cap = r/sigma;
+  double r_cap = r / sigma;
 
   if (r >= cutoff) {
     phi = 0.0;
     dphi = 0.0;
   }
   else {
-    phi = A * (B*pow(r_cap,-p) - pow(r_cap,-q)) * exp(sigma/(r - cutoff));
+    phi = A * (B * pow(r_cap, -p) - pow(r_cap, -q)) * exp(sigma / (r - cutoff));
 
-    dphi = (q*pow(r_cap,-(q+1)) - p*B*pow(r_cap,-(p+1)))
-        - (B*pow(r_cap,-p) - pow(r_cap,-q)) * pow((r - cutoff)/sigma, -2);
-    dphi *= (1/sigma) * A * exp(sigma/(r - cutoff));
+    dphi = (q * pow(r_cap, -(q + 1)) - p * B * pow(r_cap, -(p + 1)))
+           - (B * pow(r_cap, -p) - pow(r_cap, -q)) * pow((r - cutoff) / sigma, -2);
+    dphi *= (1 / sigma) * A * exp(sigma / (r - cutoff));
   }
-
 }
 
 
@@ -927,7 +979,7 @@ void StillingerWeberImplementation::CalcPhiD2phiTwo(int const ispec, int const j
   double const sigma = sigma_2D_[ispec][jspec];
   double const cutoff = sqrt(cutoffSq_2D_[ispec][jspec]);
 
-  double r_cap = r/sigma;
+  double r_cap = r / sigma;
 
   if (r >= cutoff) {
     phi = 0.0;
@@ -935,20 +987,20 @@ void StillingerWeberImplementation::CalcPhiD2phiTwo(int const ispec, int const j
     d2phi = 0.0;
   }
   else {
-    phi = A * (B*pow(r_cap,-p) - pow(r_cap,-q)) * exp(sigma/(r - cutoff));
+    phi = A * (B * pow(r_cap, -p) - pow(r_cap, -q)) * exp(sigma / (r - cutoff));
 
-    dphi = (q*pow(r_cap,-(q+1)) - p*B*pow(r_cap,-(p+1)))
-        - (B*pow(r_cap,-p) - pow(r_cap,-q)) * pow((r - cutoff)/sigma, -2);
-    dphi *= (1/sigma) * A * exp(sigma/(r - cutoff));
+    dphi = (q * pow(r_cap, -(q + 1)) - p * B * pow(r_cap, -(p + 1)))
+           - (B * pow(r_cap, -p) - pow(r_cap, -q)) * pow((r - cutoff) / sigma, -2);
+    dphi *= (1 / sigma) * A * exp(sigma / (r - cutoff));
 
-    d2phi = (B*pow(r_cap,-p) - pow(r_cap,-q))
-        * (pow((r - cutoff)/sigma, -4) + 2*pow((r - cutoff)/sigma, -3))
-        + 2*(p*B*pow(r_cap,-(p+1)) - q*pow(r_cap,-(q+1)))
-        * pow((r - cutoff)/sigma, -2)
-        + (p*(p+1)*B*pow(r_cap, -(p+2)) - q*(q+1)*pow(r_cap, -(q+2)));
-    d2phi *= (1 / (sigma*sigma)) * A * exp(sigma/(r-cutoff));
+    d2phi = (B * pow(r_cap, -p) - pow(r_cap, -q))
+            * (pow((r - cutoff) / sigma, -4) + 2 * pow((r - cutoff) / sigma, -3))
+            + 2 * (p * B * pow(r_cap, -(p + 1)) - q * pow(r_cap, -(q + 1)))
+            * pow((r - cutoff) / sigma, -2)
+            + (p * (p + 1) * B * pow(r_cap, -(p + 2))
+               - q * (q + 1) * pow(r_cap, -(q + 2)));
+    d2phi *= (1 / (sigma * sigma)) * A * exp(sigma / (r - cutoff));
   }
-
 }
 
 
@@ -969,21 +1021,20 @@ void StillingerWeberImplementation::CalcPhiThree(int const ispec, int const jspe
   double const costheta0 = costheta0_ij;  // do not mix
 
   if (rij < cutoff_ij && rik < cutoff_ik) {
-    double costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
+    double costhetajik = (pow(rij, 2) + pow(rik, 2) - pow(rjk, 2)) / (2 * rij * rik);
     double diff_costhetajik = costhetajik - costheta0;
-    double exp_ij_ik = exp(gamma_ij/(rij - cutoff_ij) + gamma_ik/(rik - cutoff_ik));
+    double exp_ij_ik = exp(gamma_ij / (rij - cutoff_ij) + gamma_ik / (rik - cutoff_ik));
     phi = lambda * exp_ij_ik * diff_costhetajik * diff_costhetajik;
   }
   else {
     phi = 0.0;
   }
-
 }
 
 
 void StillingerWeberImplementation::CalcPhiDphiThree(int const ispec, int const jspec,
     int const kspec, double const rij, double const rik, double const rjk,
-    double& phi, double *const dphi) const
+    double& phi, double* const dphi) const
 {
   // get parameters
   double const lambda_ij = lambda_2D_[ispec][jspec];
@@ -999,25 +1050,27 @@ void StillingerWeberImplementation::CalcPhiDphiThree(int const ispec, int const 
 
 
   if (rij < cutoff_ij && rik < cutoff_ik) {
-    double costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
+    double costhetajik = (pow(rij, 2) + pow(rik, 2) - pow(rjk, 2)) / (2 * rij * rik);
     double diff_costhetajik = costhetajik - costheta0;
 
     /* Derivatives of cosines w.r.t rij, rik, rjk */
-    double costhetajik_ij = (pow(rij,2) - pow(rik,2) + pow(rjk,2))/(2*rij*rij*rik);
-    double costhetajik_ik = (pow(rik,2) - pow(rij,2) + pow(rjk,2))/(2*rij*rik*rik);
-    double costhetajik_jk = -rjk/(rij*rik);
+    double costhetajik_ij = (pow(rij, 2) - pow(rik, 2) + pow(rjk, 2))
+                            / (2 * rij * rij * rik);
+    double costhetajik_ik = (pow(rik, 2) - pow(rij, 2) + pow(rjk, 2))
+                            / (2 * rij * rik * rik);
+    double costhetajik_jk = -rjk / (rij * rik);
 
     /* Variables for simplifying terms */
-    double exp_ij_ik = exp(gamma_ij/(rij - cutoff_ij) + gamma_ik/(rik - cutoff_ik));
-    double d_ij = -gamma_ij*pow(rij - cutoff_ij, -2);
-    double d_ik = -gamma_ik*pow(rik - cutoff_ik, -2);
+    double exp_ij_ik = exp(gamma_ij / (rij - cutoff_ij) + gamma_ik / (rik - cutoff_ik));
+    double d_ij = -gamma_ij* pow(rij - cutoff_ij, -2);
+    double d_ik = -gamma_ik* pow(rik - cutoff_ik, -2);
 
-    phi = lambda * exp_ij_ik * diff_costhetajik *  diff_costhetajik;
+    phi = lambda * exp_ij_ik * diff_costhetajik * diff_costhetajik;
 
     dphi[0] = lambda * diff_costhetajik * exp_ij_ik
-        * (d_ij * diff_costhetajik + 2*costhetajik_ij);
+              * (d_ij * diff_costhetajik + 2 * costhetajik_ij);
     dphi[1] = lambda * diff_costhetajik * exp_ij_ik
-        * (d_ik * diff_costhetajik + 2*costhetajik_ik);
+              * (d_ik * diff_costhetajik + 2 * costhetajik_ik);
     dphi[2] = lambda * diff_costhetajik * exp_ij_ik * 2 * costhetajik_jk;
   }
   else {
@@ -1041,7 +1094,7 @@ void StillingerWeberImplementation::CalcPhiDphiThree(int const ispec, int const 
 
 void StillingerWeberImplementation::CalcPhiD2phiThree(int const ispec, int const jspec,
     int const kspec, double const rij, double const rik, double const rjk,
-    double& phi, double *const dphi, double *const d2phi) const
+    double& phi, double* const dphi, double* const d2phi) const
 {
   // get parameters
   double const lambda_ij = lambda_2D_[ispec][jspec];
@@ -1057,62 +1110,68 @@ void StillingerWeberImplementation::CalcPhiD2phiThree(int const ispec, int const
 
 
   if (rij < cutoff_ij && rik < cutoff_ik) {
-    double costhetajik = (pow(rij,2) + pow(rik,2) - pow(rjk,2))/(2*rij*rik);
+    double costhetajik = (pow(rij, 2) + pow(rik, 2) - pow(rjk, 2)) / (2 * rij * rik);
     double diff_costhetajik = costhetajik - costheta0;
     double diff_costhetajik_2 = diff_costhetajik * diff_costhetajik;
 
     /* Derivatives of cosines w.r.t. r_ij, r_ik, r_jk */
-    double costhetajik_ij = (pow(rij,2) - pow(rik,2) + pow(rjk,2))/(2*rij*rij*rik);
-    double costhetajik_ik = (pow(rik,2) - pow(rij,2) + pow(rjk,2))/(2*rij*rik*rik);
-    double costhetajik_jk = -rjk/(rij*rik);
+    double costhetajik_ij = (pow(rij, 2) - pow(rik, 2) + pow(rjk, 2))
+                            / (2 * rij * rij * rik);
+    double costhetajik_ik = (pow(rik, 2) - pow(rij, 2) + pow(rjk, 2))
+                            / (2 * rij * rik * rik);
+    double costhetajik_jk = -rjk / (rij * rik);
 
     /* Hessian matrix of cosine */
-    double costhetajik_ij_ij = (pow(rik,2) - pow(rjk,2))/(rij*rij*rij*rik);
-    double costhetajik_ik_ik = (pow(rij,2) - pow(rjk,2))/(rij*rik*rik*rik);
-    double costhetajik_jk_jk = -1/(rij*rik);
-    double costhetajik_ij_ik = -(pow(rij,2) + pow(rik,2) + pow(rjk,2))/(2*rij*rij*rik*rik);
-    double costhetajik_ij_jk = rjk/(rij*rij*rik);
-    double costhetajik_ik_jk = rjk/(rik*rik*rij);
+    double costhetajik_ij_ij = (pow(rik, 2) - pow(rjk, 2)) / (rij * rij * rij * rik);
+    double costhetajik_ik_ik = (pow(rij, 2) - pow(rjk, 2)) / (rij * rik * rik * rik);
+    double costhetajik_jk_jk = -1 / (rij * rik);
+    double costhetajik_ij_ik = -(pow(rij, 2) + pow(rik, 2) + pow(rjk, 2))
+                               / (2 * rij * rij * rik * rik);
+    double costhetajik_ij_jk = rjk / (rij * rij * rik);
+    double costhetajik_ik_jk = rjk / (rik * rik * rij);
 
     /* Variables for simplifying terms */
-    double exp_ij_ik = exp(gamma_ij/(rij - cutoff_ij) + gamma_ik/(rik - cutoff_ik));
-    double d_ij = -gamma_ij*pow(rij - cutoff_ij, -2);
-    double d_ik = -gamma_ik*pow(rik - cutoff_ik, -2);
+    double exp_ij_ik = exp(gamma_ij / (rij - cutoff_ij) + gamma_ik / (rik - cutoff_ik));
+    double d_ij = -gamma_ij* pow(rij - cutoff_ij, -2);
+    double d_ik = -gamma_ik* pow(rik - cutoff_ik, -2);
     double d_ij_2 = d_ij * d_ij;
     double d_ik_2 = d_ik * d_ik;
-    double dd_ij = 2*gamma_ij*pow(rij - cutoff_ij, -3);
-    double dd_ik = 2*gamma_ik*pow(rik - cutoff_ik, -3);
+    double dd_ij = 2* gamma_ij* pow(rij - cutoff_ij, -3);
+    double dd_ik = 2* gamma_ik* pow(rik - cutoff_ik, -3);
 
-    phi = lambda* exp_ij_ik * diff_costhetajik *  diff_costhetajik;
+    phi = lambda * exp_ij_ik * diff_costhetajik * diff_costhetajik;
 
     dphi[0] = lambda * diff_costhetajik * exp_ij_ik
-        * (d_ij * diff_costhetajik + 2*costhetajik_ij);
+              * (d_ij * diff_costhetajik + 2 * costhetajik_ij);
     dphi[1] = lambda * diff_costhetajik * exp_ij_ik
-        * (d_ik * diff_costhetajik + 2*costhetajik_ik);
+              * (d_ik * diff_costhetajik + 2 * costhetajik_ik);
     dphi[2] = lambda * diff_costhetajik * exp_ij_ik * 2 * costhetajik_jk;
 
-    d2phi[0] = lambda * exp_ij_ik * ((d_ij_2 + dd_ij) * diff_costhetajik_2
-        + (4 * d_ij * costhetajik_ij + 2 * costhetajik_ij_ij) * diff_costhetajik
-        + 2 * costhetajik_ij * costhetajik_ij);
-    d2phi[1] = lambda * exp_ij_ik * ((d_ik_2 + dd_ik) * diff_costhetajik_2
-        + (4 * d_ik * costhetajik_ik + 2 * costhetajik_ik_ik) * diff_costhetajik
-        + 2 * costhetajik_ik * costhetajik_ik);
-    d2phi[2] = lambda * 2 * exp_ij_ik * (costhetajik_jk_jk * diff_costhetajik
-        + costhetajik_jk *costhetajik_jk);
-    d2phi[3] = lambda * exp_ij_ik * (d_ij * d_ik * diff_costhetajik_2
-        + (d_ij * costhetajik_ik + d_ik * costhetajik_ij + costhetajik_ij_ik)
-        * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_ik);
-    d2phi[4] = lambda * exp_ij_ik * ((d_ij * costhetajik_jk + costhetajik_ij_jk)
-        * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_jk);
-    d2phi[5] = lambda * exp_ij_ik * ((d_ik * costhetajik_jk + costhetajik_ik_jk)
-        * 2 * diff_costhetajik + 2 * costhetajik_ik * costhetajik_jk);
+    d2phi[0] = lambda * exp_ij_ik *
+               ((d_ij_2 + dd_ij) * diff_costhetajik_2
+                + (4 * d_ij * costhetajik_ij + 2 * costhetajik_ij_ij) * diff_costhetajik
+                + 2 * costhetajik_ij * costhetajik_ij);
+    d2phi[1] = lambda * exp_ij_ik *
+               ((d_ik_2 + dd_ik) * diff_costhetajik_2
+                + (4 * d_ik * costhetajik_ik + 2 * costhetajik_ik_ik) * diff_costhetajik
+                + 2 * costhetajik_ik * costhetajik_ik);
+    d2phi[2] = lambda * 2 * exp_ij_ik *
+               (costhetajik_jk_jk * diff_costhetajik
+                + costhetajik_jk * costhetajik_jk);
+    d2phi[3] = lambda * exp_ij_ik *
+               (d_ij * d_ik * diff_costhetajik_2
+                + (d_ij * costhetajik_ik + d_ik * costhetajik_ij + costhetajik_ij_ik)
+                * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_ik);
+    d2phi[4] = lambda * exp_ij_ik *
+               ((d_ij * costhetajik_jk + costhetajik_ij_jk)
+                * 2 * diff_costhetajik + 2 * costhetajik_ij * costhetajik_jk);
+    d2phi[5] = lambda * exp_ij_ik *
+               ((d_ik * costhetajik_jk + costhetajik_ik_jk)
+                * 2 * diff_costhetajik + 2 * costhetajik_ik * costhetajik_jk);
   }
   else {
     phi = 0.0;
     dphi[0] = dphi[1] = dphi[2] = 0.0;
     d2phi[0] = d2phi[1] = d2phi[2] = d2phi[3] = d2phi[4] = d2phi[5] = 0.0;
   }
-
 }
-
-

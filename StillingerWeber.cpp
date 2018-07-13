@@ -46,7 +46,7 @@
 extern "C"
 {
 int model_driver_create(
-    KIM::ModelDriverCreate * const modelDriverCreate,
+    KIM::ModelDriverCreate* const modelDriverCreate,
     KIM::LengthUnit const requestedLengthUnit,
     KIM::EnergyUnit const requestedEnergyUnit,
     KIM::ChargeUnit const requestedChargeUnit,
@@ -58,15 +58,15 @@ int model_driver_create(
   // read input files, convert units if needed, compute
   // interpolation coefficients, set cutoff, and publish parameters
   StillingerWeber* const modelObject
-      = new StillingerWeber(modelDriverCreate,
-                            requestedLengthUnit,
-                            requestedEnergyUnit,
-                            requestedChargeUnit,
-                            requestedTemperatureUnit,
-                            requestedTimeUnit,
-                            &ier);
-  if (ier)
-  {
+    = new StillingerWeber(modelDriverCreate,
+      requestedLengthUnit,
+      requestedEnergyUnit,
+      requestedChargeUnit,
+      requestedTemperatureUnit,
+      requestedTimeUnit,
+      &ier);
+
+  if (ier) {
     // constructor already reported the error
     delete modelObject;
     return ier;
@@ -74,7 +74,7 @@ int model_driver_create(
 
   // register pointer to StillingerWeber object in KIM object
   modelDriverCreate->SetModelBufferPointer(
-      static_cast<void*>(modelObject));
+      static_cast<void*> (modelObject));
 
   // everything is good
   ier = false;
@@ -90,7 +90,7 @@ int model_driver_create(
 
 //******************************************************************************
 StillingerWeber::StillingerWeber(
-    KIM::ModelDriverCreate * const modelDriverCreate,
+    KIM::ModelDriverCreate* const modelDriverCreate,
     KIM::LengthUnit const requestedLengthUnit,
     KIM::EnergyUnit const requestedEnergyUnit,
     KIM::ChargeUnit const requestedChargeUnit,
@@ -108,21 +108,23 @@ StillingerWeber::StillingerWeber(
       ier);
 }
 
+
 //******************************************************************************
 StillingerWeber::~StillingerWeber()
 {
   delete implementation_;
 }
 
+
 //******************************************************************************
 // static member function
-int StillingerWeber::Destroy(KIM::ModelDestroy * const modelDestroy)
+int StillingerWeber::Destroy(KIM::ModelDestroy* const modelDestroy)
 {
-  StillingerWeber * modelObject;
-  modelDestroy->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
+  StillingerWeber* modelObject;
 
-  if (modelObject != NULL)
-  {
+  modelDestroy->GetModelBufferPointer(reinterpret_cast<void**> (&modelObject));
+
+  if (modelObject != NULL) {
     // delete object itself
     delete modelObject;
   }
@@ -131,54 +133,60 @@ int StillingerWeber::Destroy(KIM::ModelDestroy * const modelDestroy)
   return false;
 }
 
+
 //******************************************************************************
 // static member function
 int StillingerWeber::Refresh(
-    KIM::ModelRefresh * const modelRefresh)
+    KIM::ModelRefresh* const modelRefresh)
 {
-  StillingerWeber * modelObject;
+  StillingerWeber* modelObject;
+
   modelRefresh->GetModelBufferPointer(
-      reinterpret_cast<void**>(&modelObject));
+      reinterpret_cast<void**> (&modelObject));
 
   return modelObject->implementation_->Refresh(modelRefresh);
 }
 
+
 //******************************************************************************
 // static member function
 int StillingerWeber::Compute(
-    KIM::ModelCompute const * const modelCompute,
-    KIM::ModelComputeArguments const * const modelComputeArguments)
+    KIM::ModelCompute const* const modelCompute,
+    KIM::ModelComputeArguments const* const modelComputeArguments)
 {
-  StillingerWeber * modelObject;
-  modelCompute->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
+  StillingerWeber* modelObject;
+
+  modelCompute->GetModelBufferPointer(reinterpret_cast<void**> (&modelObject));
 
   return modelObject->implementation_->Compute(modelCompute, modelComputeArguments);
-
 }
+
 
 //******************************************************************************
 // static member function
 int StillingerWeber::ComputeArgumentsCreate(
-    KIM::ModelCompute const * const modelCompute,
-    KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate)
+    KIM::ModelCompute const* const modelCompute,
+    KIM::ModelComputeArgumentsCreate* const modelComputeArgumentsCreate)
 {
-  StillingerWeber * modelObject;
-  modelCompute->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
+  StillingerWeber* modelObject;
+
+  modelCompute->GetModelBufferPointer(reinterpret_cast<void**> (&modelObject));
 
   return modelObject->implementation_
-      ->ComputeArgumentsCreate(modelComputeArgumentsCreate);
+         ->ComputeArgumentsCreate(modelComputeArgumentsCreate);
 }
+
 
 //******************************************************************************
 // static member function
 int StillingerWeber::ComputeArgumentsDestroy(
-    KIM::ModelCompute const * const modelCompute,
-    KIM::ModelComputeArgumentsDestroy * const modelComputeArgumentsDestroy)
+    KIM::ModelCompute const* const modelCompute,
+    KIM::ModelComputeArgumentsDestroy* const modelComputeArgumentsDestroy)
 {
-  StillingerWeber * modelObject;
-  modelCompute->GetModelBufferPointer(reinterpret_cast<void**>(&modelObject));
+  StillingerWeber* modelObject;
+
+  modelCompute->GetModelBufferPointer(reinterpret_cast<void**> (&modelObject));
 
   return modelObject->implementation_
-      ->ComputeArgumentsDestroy(modelComputeArgumentsDestroy);
+         ->ComputeArgumentsDestroy(modelComputeArgumentsDestroy);
 }
-
