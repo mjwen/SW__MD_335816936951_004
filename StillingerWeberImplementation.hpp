@@ -319,13 +319,16 @@ int StillingerWeberImplementation::Compute(
   int const * n1atom = NULL;
 
   for (i = 0; i < cachedNumberOfParticles_; ++i) {
+
     if (particleContributing[i]) {
+
       modelComputeArguments->GetNeighborList(0, i, &numnei, &n1atom);
       int const iSpecies = particleSpeciesCodes[i];
 
       // Setup loop over neighbors of current particle
       for (int jj = 0; jj < numnei; ++jj) {
         int const j = n1atom[jj];
+
         int const jSpecies = particleSpeciesCodes[j];
 
         // Compute rij
@@ -339,85 +342,91 @@ int StillingerWeberImplementation::Compute(
 
         if (rij_sq <= cutoffSq_2D_[iSpecies][jSpecies]) {
 
-          // two-body contributions
-          double phi_two = 0.0;
-          double dphi_two = 0.0;
-          double d2phi_two = 0.0;
-          double dEidr_two = 0.0;
-          double d2Eidr2_two = 0.0;
 
-          // Compute two body potenitals and its derivatives
-          if (isComputeProcess_d2Edr2 == true) {
-            CalcPhiD2phiTwo(iSpecies, jSpecies, rij_mag, phi_two, dphi_two, d2phi_two);
-            dEidr_two = 0.5*dphi_two;
-            d2Eidr2_two = 0.5*d2phi_two;
-          }
-          else if ((isComputeProcess_dEdr == true) || (isComputeForces == true) ||
-              (isComputeVirial == true) || (isComputeParticleVirial == true) ) {
-            CalcPhiDphiTwo(iSpecies, jSpecies, rij_mag, phi_two, dphi_two);
-            dEidr_two = 0.5*dphi_two;
-          }
-          else if ((isComputeEnergy == true) || (isComputeParticleEnergy == true)) {
-            CalcPhiTwo(iSpecies, jSpecies, rij_mag, phi_two);
-          }
+          if (i < j) {  // effective half list
 
-          // Contribution to energy
-          if (isComputeEnergy == true) {
-            *energy += 0.5*phi_two;
-          }
-          // Contribution to forces
-          if (isComputeForces == true) {
-            for (int dim = 0; dim < DIMENSION; ++dim) {
-              double const contrib = dEidr_two * rij[dim] / rij_mag;
-              forces[i][dim] += contrib;
-              forces[j][dim] -= contrib;
+            // two-body contributions
+            double phi_two = 0.0;
+            double dphi_two = 0.0;
+            double d2phi_two = 0.0;
+            double dEidr_two = 0.0;
+            double d2Eidr2_two = 0.0;
+
+            // Compute two body potenitals and its derivatives
+            if (isComputeProcess_d2Edr2 == true) {
+              CalcPhiD2phiTwo(iSpecies, jSpecies, rij_mag, phi_two, dphi_two, d2phi_two);
+              dEidr_two = dphi_two;
+              d2Eidr2_two = d2phi_two;
             }
-          }
-
-          // Contribution to particleEnergy
-          if (isComputeParticleEnergy == true) {
-            particleEnergy[i] += 0.5*phi_two;
-          }
-
-          // Contribution to virial
-          if (isComputeVirial == true) {
-            ProcessVirialTerm(dEidr_two, rij_mag, rij, i, j, virial);
-          }
-
-          // Contribution to particleVirial
-          if (isComputeParticleVirial == true) {
-            ProcessParticleVirialTerm(dEidr_two, rij_mag, rij, i, j, particleVirial);
-          }
-
-          // Call process_dEdr
-          if (isComputeProcess_dEdr == true) {
-            ier = modelComputeArguments->ProcessDEDrTerm(dEidr_two, rij_mag, rij, i, j);
-            if (ier) {
-              LOG_ERROR("ProcessDEdr");
-              return ier;
+            else if ((isComputeProcess_dEdr == true) || (isComputeForces == true) ||
+                (isComputeVirial == true) || (isComputeParticleVirial == true) ) {
+              CalcPhiDphiTwo(iSpecies, jSpecies, rij_mag, phi_two, dphi_two);
+              dEidr_two = dphi_two;
             }
-          }
-
-          // Call process_d2Edr2
-          if (isComputeProcess_d2Edr2 == true) {
-            double const R_pairs[2] = {rij_mag, rij_mag};
-            double const* const pRs = &R_pairs[0];
-            double const Rij_pairs[6]
-                = {rij[0], rij[1], rij[2],
-                   rij[0], rij[1], rij[2]};
-            double const* const pRijConsts = &Rij_pairs[0];
-            int const i_pairs[2] = {i, i};
-            int const j_pairs[2] = {j, j};
-            int const* const pis = &i_pairs[0];
-            int const* const pjs = &j_pairs[0];
-
-            ier = modelComputeArguments->ProcessD2EDr2Term(d2Eidr2_two, pRs,
-                pRijConsts, pis, pjs);
-            if (ier) {
-              LOG_ERROR("ProcessD2Edr2");
-              return ier;
+            else if ((isComputeEnergy == true) || (isComputeParticleEnergy == true)) {
+              CalcPhiTwo(iSpecies, jSpecies, rij_mag, phi_two);
             }
-          }
+
+            // Contribution to energy
+            if (isComputeEnergy == true) {
+              *energy += phi_two;
+            }
+            // Contribution to forces
+            if (isComputeForces == true) {
+              for (int dim = 0; dim < DIMENSION; ++dim) {
+                double const contrib = dEidr_two * rij[dim] / rij_mag;
+                forces[i][dim] += contrib;
+                forces[j][dim] -= contrib;
+              }
+            }
+
+            // Contribution to particleEnergy
+            if (isComputeParticleEnergy == true) {
+              particleEnergy[i] += HALF * phi_two;
+              particleEnergy[j] += HALF * phi_two;
+            }
+
+            // Contribution to virial
+            if (isComputeVirial == true) {
+              ProcessVirialTerm(dEidr_two, rij_mag, rij, i, j, virial);
+            }
+
+            // Contribution to particleVirial
+            if (isComputeParticleVirial == true) {
+              ProcessParticleVirialTerm(dEidr_two, rij_mag, rij, i, j, particleVirial);
+            }
+
+            // Call process_dEdr
+            if (isComputeProcess_dEdr == true) {
+              ier = modelComputeArguments->ProcessDEDrTerm(dEidr_two, rij_mag, rij, i, j);
+              if (ier) {
+                LOG_ERROR("ProcessDEdr");
+                return ier;
+              }
+            }
+
+            // Call process_d2Edr2
+            if (isComputeProcess_d2Edr2 == true) {
+              double const R_pairs[2] = {rij_mag, rij_mag};
+              double const* const pRs = &R_pairs[0];
+              double const Rij_pairs[6]
+                  = {rij[0], rij[1], rij[2],
+                     rij[0], rij[1], rij[2]};
+              double const* const pRijConsts = &Rij_pairs[0];
+              int const i_pairs[2] = {i, i};
+              int const j_pairs[2] = {j, j};
+              int const* const pis = &i_pairs[0];
+              int const* const pjs = &j_pairs[0];
+
+              ier = modelComputeArguments->ProcessD2EDr2Term(d2Eidr2_two, pRs,
+                  pRijConsts, pis, pjs);
+              if (ier) {
+                LOG_ERROR("ProcessD2Edr2");
+                return ier;
+              }
+            }
+
+          }  // i < j
 
 
           // three-body contribution
@@ -699,10 +708,10 @@ int StillingerWeberImplementation::Compute(
 
             }  // if particleContributing
           }  // if particles i and k interact
-        }  // if particleContributing
-      }  // if particles i and j interact
-    }  // end of first neighbor loop
-  }  // end of loop over contributing particles
+        }  // if particles i and j interact
+      }  // end of first neighbor loop
+    }  // if particleContributing
+  }  // loop over all particles
 
   // everything is good
   ier = false;

@@ -19,7 +19,7 @@
 //
 
 //
-// Copyright (c) 2013--2015, Regents of the University of Minnesota.
+// Copyright (c) 2018, Regents of the University of Minnesota.
 // All rights reserved.
 //
 // Contributors:
@@ -68,8 +68,8 @@ StillingerWeberImplementation::StillingerWeberImplementation(
   gamma_(NULL),
   costheta0_(NULL),
   influenceDistance_(0.0),
-  paddingNeighborHints_(1),
-  halfListHints_(1),
+  paddingNeighborHints_(0),
+  halfListHints_(0),
   cutoffSq_2D_(NULL),
   A_2D_(NULL),
   B_2D_(NULL),
