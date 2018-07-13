@@ -39,11 +39,12 @@ MODEL_DRIVER_NAME := Three_Body_Stillinger_Weber__MD_000000111111_000
 MODEL_DRIVER_CREATE_FUNCTION_NAME := model_driver_create
 MODEL_DRIVER_CREATE_FUNCTION_LANG := cpp
 
-LOCALOBJ = StillingerWeber.o StillingerWeberImplementation.o
+LOCALOBJ = StillingerWeber.o StillingerWeberImplementation.o helper.o
 
 StillingerWeber.o: StillingerWeber.hpp StillingerWeberImplementation.hpp
-StillingerWeberImplementation.o: StillingerWeberImplementation.hpp \
+StillingerWeberImplementation.o: StillingerWeberImplementation.hpp helper.hpp\
                                  StillingerWeberImplementationComputeDispatch.cpp
+helper.o: helper.hpp
 StillingerWeberImplementationComputeDispatch.cpp: CreateDispatch.sh
 	@./CreateDispatch.sh
 	@printf "Creating... $@.\n"

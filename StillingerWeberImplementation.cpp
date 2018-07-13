@@ -24,9 +24,6 @@
 //
 // Contributors:
 //    Mingjian Wen
-//    Ryan S. Elliott
-//    Stephen M. Whalen
-//    Andrew Akerson
 //
 
 
@@ -38,12 +35,7 @@
 #include <map>
 
 #include "StillingerWeberImplementation.hpp"
-#include "KIM_Numbering.hpp"
-#include "KIM_LanguageName.hpp"
-#include "KIM_SpeciesName.hpp"
-#include "KIM_SupportStatus.hpp"
-#include "KIM_ComputeArgumentName.hpp"
-#include "KIM_ComputeCallbackName.hpp"
+#include "KIM_ModelDriverHeaders.hpp"
 
 #define MAXLINE 1024
 
@@ -66,25 +58,27 @@ StillingerWeberImplementation::StillingerWeberImplementation(
     int * const ier)
 : numberModelSpecies_(0),
   numberUniqueSpeciesPairs_(0),
-  cutoff_(0),
-  A_(0),
-  B_(0),
-  p_(0),
-  q_(0),
-  sigma_(0),
-  lambda_(0),
-  gamma_(0),
-  costheta0_(0),
+  cutoff_(NULL),
+  A_(NULL),
+  B_(NULL),
+  p_(NULL),
+  q_(NULL),
+  sigma_(NULL),
+  lambda_(NULL),
+  gamma_(NULL),
+  costheta0_(NULL),
   influenceDistance_(0.0),
-  cutoffSq_2D_(0),
-  A_2D_(0),
-  B_2D_(0),
-  p_2D_(0),
-  q_2D_(0),
-  sigma_2D_(0),
-  lambda_2D_(0),
-  gamma_2D_(0),
-  costheta0_2D_(0),
+  paddingNeighborHints_(1),
+  halfListHints_(1),
+  cutoffSq_2D_(NULL),
+  A_2D_(NULL),
+  B_2D_(NULL),
+  p_2D_(NULL),
+  q_2D_(NULL),
+  sigma_2D_(NULL),
+  lambda_2D_(NULL),
+  gamma_2D_(NULL),
+  costheta0_2D_(NULL),
   cachedNumberOfParticles_(0)
 {
   FILE* parameterFilePointers[MAX_PARAMETER_FILES];
@@ -95,7 +89,7 @@ StillingerWeberImplementation::StillingerWeberImplementation(
   if (*ier) return;
 
   *ier = ProcessParameterFiles(modelDriverCreate, numberParameterFiles,
-                               parameterFilePointers);
+      parameterFilePointers);
   CloseParameterFiles(numberParameterFiles, parameterFilePointers);
   if (*ier) return;
 
@@ -151,6 +145,7 @@ StillingerWeberImplementation::~StillingerWeberImplementation()
 }
 
 //******************************************************************************
+#include "KIM_ModelRefreshLogMacros.hpp"
 int StillingerWeberImplementation::Refresh(
     KIM::ModelRefresh * const modelRefresh)
 {
@@ -181,27 +176,31 @@ int StillingerWeberImplementation::Compute(
   bool isComputeEnergy = false;
   bool isComputeForces = false;
   bool isComputeParticleEnergy = false;
+  bool isComputeVirial = false;
+  bool isComputeParticleVirial = false;
   //
   // KIM API Model Input
-  int const* particleSpecies = 0;
-  int const* particleContributing = 0;
-  VectorOfSizeDIM const* coordinates = 0;
+  int const* particleSpeciesCodes = NULL;
+  int const* particleContributing = NULL;
+  VectorOfSizeDIM const* coordinates = NULL;
   //
   // KIM API Model Output
-  double* energy = 0;
-  double* particleEnergy = 0;
-  VectorOfSizeDIM* forces = 0;
+  double* energy = NULL;
+  double* particleEnergy = NULL;
+  VectorOfSizeDIM* forces = NULL;
+  VectorOfSizeSix* virial = NULL;
+  VectorOfSizeSix* particleVirial = NULL;
   ier = SetComputeMutableValues(modelComputeArguments,
-                                isComputeProcess_dEdr,
-                                isComputeProcess_d2Edr2, isComputeEnergy,
-                                isComputeForces, isComputeParticleEnergy,
-                                particleSpecies, particleContributing,
-                                coordinates, energy, particleEnergy, forces);
+      isComputeProcess_dEdr, isComputeProcess_d2Edr2,
+      isComputeEnergy, isComputeForces, isComputeParticleEnergy,
+      isComputeVirial, isComputeParticleVirial,
+      particleSpeciesCodes, particleContributing, coordinates,
+      energy, forces, particleEnergy, virial, particleVirial);
   if (ier) return ier;
 
   // Skip this check for efficiency
   //
-  // ier = CheckParticleSpecies(pkim, particleSpecies);
+  //ier = CheckParticleSpecies(modelComputeArguments, particleSpeciesCodes);
   // if (ier) return ier;
 
 
@@ -251,6 +250,37 @@ int StillingerWeberImplementation::ComputeArgumentsDestroy(
 //==============================================================================
 
 //******************************************************************************
+void StillingerWeberImplementation::AllocatePrivateParameterMemory()
+{
+  // nothing to do for this case
+}
+
+//******************************************************************************
+void StillingerWeberImplementation::AllocateParameterMemory()
+{ // allocate memory for data
+  AllocateAndInitialize1DArray<double>(cutoff_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(A_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(B_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(p_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(q_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(sigma_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(lambda_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(gamma_, numberUniqueSpeciesPairs_);
+  AllocateAndInitialize1DArray<double>(costheta0_, numberUniqueSpeciesPairs_);
+
+  AllocateAndInitialize2DArray<double>(cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(A_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(B_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(p_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(q_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(sigma_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(lambda_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(gamma_2D_, numberModelSpecies_, numberModelSpecies_);
+  AllocateAndInitialize2DArray<double>(costheta0_2D_, numberModelSpecies_, numberModelSpecies_);
+
+}
+
+//******************************************************************************
 #include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::OpenParameterFiles(
     KIM::ModelDriverCreate * const modelDriverCreate,
@@ -294,6 +324,7 @@ int StillingerWeberImplementation::OpenParameterFiles(
 }
 
 //******************************************************************************
+#include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::ProcessParameterFiles(
     KIM::ModelDriverCreate * const modelDriverCreate,
     int const numberParameterFiles,
@@ -317,7 +348,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   }
   numberModelSpecies_ = N;
   numberUniqueSpeciesPairs_ = ((numberModelSpecies_+1)*numberModelSpecies_)/2;
-  AllocateFreeParameterMemory();
+  AllocateParameterMemory();
 
   // set all values of p_ to -1.1e10 for later check that we have read all params
   for (int i = 0; i < ((N+1)*N/2); i++) {
@@ -442,30 +473,6 @@ void StillingerWeberImplementation::CloseParameterFiles(
     fclose(parameterFilePointers[i]);
 }
 
-//******************************************************************************
-void StillingerWeberImplementation::AllocateFreeParameterMemory()
-{ // allocate memory for data
-  AllocateAndInitialize1DArray(cutoff_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(A_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(B_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(p_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(q_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(sigma_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(lambda_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(gamma_, numberUniqueSpeciesPairs_);
-  AllocateAndInitialize1DArray(costheta0_, numberUniqueSpeciesPairs_);
-
-  AllocateAndInitialize2DArray(cutoffSq_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(A_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(B_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(p_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(q_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(sigma_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(lambda_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(gamma_2D_, numberModelSpecies_, numberModelSpecies_);
-  AllocateAndInitialize2DArray(costheta0_2D_, numberModelSpecies_, numberModelSpecies_);
-
-}
 
 //******************************************************************************
 #include "KIM_ModelDriverCreateLogMacros.hpp"
@@ -571,6 +578,12 @@ int StillingerWeberImplementation::RegisterKIMComputeArgumentsSettings(
           KIM::SUPPORT_STATUS::optional)
       || modelComputeArgumentsCreate->SetArgumentSupportStatus(
           KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
+          KIM::SUPPORT_STATUS::optional)
+      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
+          KIM::COMPUTE_ARGUMENT_NAME::partialVirial,
+          KIM::SUPPORT_STATUS::optional)
+      || modelComputeArgumentsCreate->SetArgumentSupportStatus(
+          KIM::COMPUTE_ARGUMENT_NAME::partialParticleVirial,
           KIM::SUPPORT_STATUS::optional);
 
   // register callbacks
@@ -641,7 +654,10 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
 template<class ModelObj>
 int StillingerWeberImplementation::SetRefreshMutableValues(
     ModelObj * const modelObj)
-{ // use (possibly) new values of free parameters to compute other quantities
+{ // use (possibly) new values of parameters to compute other quantities
+  // NOTE: This function is templated because it's called with both a
+  //       modelDriverCreate object during initialization and with a
+  //       modelRefresh object when the Model's parameters have been altered
   int ier;
 
   // update parameters
@@ -677,8 +693,8 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
 
   influenceDistance_ = sqrt(influenceDistance_);
   modelObj->SetInfluenceDistancePointer(&influenceDistance_);
-  modelObj->SetNeighborListCutoffsPointer(1, &influenceDistance_);
-
+  modelObj->SetNeighborListPointers(1,
+      &influenceDistance_, &paddingNeighborHints_, &halfListHints_);
 
   // everything is good
   ier = false;
@@ -694,12 +710,16 @@ int StillingerWeberImplementation::SetComputeMutableValues(
     bool& isComputeEnergy,
     bool& isComputeForces,
     bool& isComputeParticleEnergy,
+    bool& isComputeVirial,
+    bool& isComputeParticleVirial,
     int const*& particleSpeciesCodes,
     int const*& particleContributing,
     VectorOfSizeDIM const*& coordinates,
     double*& energy,
+    VectorOfSizeDIM*& forces,
     double*& particleEnergy,
-    VectorOfSizeDIM*& forces)
+    VectorOfSizeSix*& virial,
+    VectorOfSizeSix*& particleVirial)
 {
   int ier = true;
 
@@ -716,7 +736,6 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 
   isComputeProcess_dEdr = compProcess_dEdr;
   isComputeProcess_d2Edr2 = compProcess_d2Edr2;
-
 
   int const* numberOfParticles;
   ier =
@@ -736,20 +755,28 @@ int StillingerWeberImplementation::SetComputeMutableValues(
           KIM::COMPUTE_ARGUMENT_NAME::partialEnergy,
           &energy)
       || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::partialForces,
+          (double const ** const) &forces)
+      || modelComputeArguments->GetArgumentPointer(
           KIM::COMPUTE_ARGUMENT_NAME::partialParticleEnergy,
           &particleEnergy)
       || modelComputeArguments->GetArgumentPointer(
-          KIM::COMPUTE_ARGUMENT_NAME::partialForces,
-          (double const ** const) &forces);
+          KIM::COMPUTE_ARGUMENT_NAME::partialVirial,
+          (double const ** const) &virial)
+      || modelComputeArguments->GetArgumentPointer(
+          KIM::COMPUTE_ARGUMENT_NAME::partialParticleVirial,
+          (double const ** const) &particleVirial);
   if (ier)
   {
     LOG_ERROR("GetArgumentPointer");
     return ier;
   }
 
-  isComputeEnergy = (energy != 0);
-  isComputeParticleEnergy = (particleEnergy != 0);
-  isComputeForces = (forces != 0);
+  isComputeEnergy = (energy != NULL);
+  isComputeForces = (forces != NULL);
+  isComputeParticleEnergy = (particleEnergy != NULL);
+  isComputeVirial = (virial != NULL);
+  isComputeParticleVirial = (particleVirial != NULL);
 
   // update values
   cachedNumberOfParticles_ = *numberOfParticles;
@@ -762,7 +789,7 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 //******************************************************************************
 // Assume that the particle species interge code starts from 0
 #include "KIM_ModelComputeLogMacros.hpp"
-int StillingerWeberImplementation::CheckParticleSpecies(
+int StillingerWeberImplementation::CheckParticleSpeciesCodes(
     KIM::ModelCompute const * const modelCompute,
     int const* const particleSpecies)
     const
@@ -771,7 +798,7 @@ int StillingerWeberImplementation::CheckParticleSpecies(
   for (int i = 0; i < cachedNumberOfParticles_; ++i) {
     if ((particleSpecies[i] < 0) || (particleSpecies[i] >= numberModelSpecies_)) {
       ier = true;
-      LOG_ERROR("unsupported particle species detected");
+      LOG_ERROR("unsupported particle species codes detected");
       return ier;
     }
   }
@@ -787,32 +814,47 @@ int StillingerWeberImplementation::GetComputeIndex(
     const bool& isComputeProcess_d2Edr2,
     const bool& isComputeEnergy,
     const bool& isComputeForces,
-    const bool& isComputeParticleEnergy) const
+    const bool& isComputeParticleEnergy,
+    const bool& isComputeVirial,
+    const bool& isComputeParticleVirial) const
 {
   //const int processdE = 2;
   const int processd2E = 2;
   const int energy = 2;
   const int force = 2;
   const int particleEnergy = 2;
+  const int virial = 2;
+  const int particleVirial = 2;
 
 
   int index = 0;
 
   // processdE
-  index += (int(isComputeProcess_dEdr)) * processd2E * energy * force * particleEnergy;
+  index += (int(isComputeProcess_dEdr))
+      * processd2E * energy * force * particleEnergy * virial * particleVirial;
 
   // processd2E
-  index += (int(isComputeProcess_d2Edr2)) * energy * force * particleEnergy;
+  index += (int(isComputeProcess_d2Edr2))
+      * energy * force * particleEnergy * virial * particleVirial;
 
   // energy
-  index += (int(isComputeEnergy)) * force * particleEnergy;
+  index += (int(isComputeEnergy))
+      * force * particleEnergy * virial * particleVirial;
 
   // force
-  index += (int(isComputeForces)) * particleEnergy;
+  index += (int(isComputeForces))
+      * particleEnergy * virial * particleVirial;
 
   // particleEnergy
-  index += (int(isComputeParticleEnergy));
+  index += (int(isComputeParticleEnergy))
+      * virial * particleVirial;
 
+  // virial
+  index += (int(isComputeVirial))
+      * particleVirial;
+
+  // particleVirial
+  index += (int(isComputeParticleVirial));
 
   return index;
 }
@@ -823,8 +865,8 @@ int StillingerWeberImplementation::GetComputeIndex(
 // Stillinger-Weber functions
 //
 //==============================================================================
-void StillingerWeberImplementation::CalcPhiTwo(int ispec, int jspec,
-    double r, double& phi)
+void StillingerWeberImplementation::CalcPhiTwo(int const ispec, int const jspec,
+    double const r, double& phi) const
 {
   // get parameters
   double const A = A_2D_[ispec][jspec];
@@ -846,8 +888,8 @@ void StillingerWeberImplementation::CalcPhiTwo(int ispec, int jspec,
 }
 
 
-void StillingerWeberImplementation::CalcPhiDphiTwo(int ispec, int jspec,
-    double r, double& phi, double& dphi)
+void StillingerWeberImplementation::CalcPhiDphiTwo(int const ispec, int const jspec,
+    double const r, double& phi, double& dphi) const
 {
   // get parameters
   double const A = A_2D_[ispec][jspec];
@@ -874,8 +916,8 @@ void StillingerWeberImplementation::CalcPhiDphiTwo(int ispec, int jspec,
 }
 
 
-void StillingerWeberImplementation::CalcPhiD2phiTwo(int ispec, int jspec,
-    double r, double& phi, double& dphi, double& d2phi)
+void StillingerWeberImplementation::CalcPhiD2phiTwo(int const ispec, int const jspec,
+    double const r, double& phi, double& dphi, double& d2phi) const
 {
   // get parameters
   double const A = A_2D_[ispec][jspec];
@@ -910,8 +952,9 @@ void StillingerWeberImplementation::CalcPhiD2phiTwo(int ispec, int jspec,
 }
 
 
-void StillingerWeberImplementation::CalcPhiThree(int ispec, int jspec, int kspec,
-    double rij, double rik, double rjk, double& phi)
+void StillingerWeberImplementation::CalcPhiThree(int const ispec, int const jspec,
+    int const kspec, double const rij, double const rik, double const rjk,
+    double& phi) const
 {
   // get parameters
   double const lambda_ij = lambda_2D_[ispec][jspec];
@@ -938,8 +981,9 @@ void StillingerWeberImplementation::CalcPhiThree(int ispec, int jspec, int kspec
 }
 
 
-void StillingerWeberImplementation::CalcPhiDphiThree(int ispec, int jspec, int kspec,
-    double rij, double rik, double rjk, double& phi, double *const dphi)
+void StillingerWeberImplementation::CalcPhiDphiThree(int const ispec, int const jspec,
+    int const kspec, double const rij, double const rik, double const rjk,
+    double& phi, double *const dphi) const
 {
   // get parameters
   double const lambda_ij = lambda_2D_[ispec][jspec];
@@ -995,9 +1039,9 @@ void StillingerWeberImplementation::CalcPhiDphiThree(int ispec, int jspec, int k
 //                 [1]=(ik,ik), [5]=(ik,jk)
 //                              [2]=(jk,jk)
 
-void StillingerWeberImplementation::CalcPhiD2phiThree(int ispec, int jspec, int kspec,
-    double rij, double rik, double rjk,
-    double& phi, double *const dphi, double *const d2phi)
+void StillingerWeberImplementation::CalcPhiD2phiThree(int const ispec, int const jspec,
+    int const kspec, double const rij, double const rik, double const rjk,
+    double& phi, double *const dphi, double *const d2phi) const
 {
   // get parameters
   double const lambda_ij = lambda_2D_[ispec][jspec];
@@ -1071,58 +1115,4 @@ void StillingerWeberImplementation::CalcPhiD2phiThree(int ispec, int jspec, int 
 
 }
 
-
-//==============================================================================
-//
-// Implementation of helper functions
-//
-//==============================================================================
-
-//******************************************************************************
-void AllocateAndInitialize2DArray(double**& arrayPtr, int const extentZero,
-                                  int const extentOne)
-{ // allocate memory and set pointers
-  arrayPtr = new double*[extentZero];
-  arrayPtr[0] = new double[extentZero * extentOne];
-  for (int i = 1; i < extentZero; ++i) {
-    arrayPtr[i] = arrayPtr[i-1] + extentOne;
-  }
-
-  // initialize
-  for (int i = 0; i < extentZero; ++i) {
-    for (int j = 0; j < extentOne; ++j) {
-      arrayPtr[i][j] = 0.0;
-    }
-  }
-}
-
-//******************************************************************************
-void Deallocate2DArray(double**& arrayPtr)
-{ // deallocate memory
-  if (arrayPtr != 0) delete [] arrayPtr[0];
-  delete [] arrayPtr;
-
-  // nullify pointer
-  arrayPtr = 0;
-}
-
-
-//******************************************************************************
-void AllocateAndInitialize1DArray(double*& arrayPtr, int const extentZero)
-{ // allocate memory and set pointers
-  arrayPtr = new double[extentZero];
-  for (int i = 0; i < extentZero; ++i) {
-    arrayPtr[i] = 0.0;
-  }
-
-}
-
-//******************************************************************************
-void Deallocate1DArray(double*& arrayPtr)
-{ // deallocate memory
-  delete [] arrayPtr;
-
-  // nullify pointer
-  arrayPtr = 0;
-}
 

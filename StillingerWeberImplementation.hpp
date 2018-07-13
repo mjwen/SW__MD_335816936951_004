@@ -19,7 +19,7 @@
 //
 
 //
-// Copyright (c) 2017, Regents of the University of Minnesota.
+// Copyright (c) 2018, Regents of the University of Minnesota.
 // All rights reserved.
 //
 // Contributors:
@@ -32,6 +32,7 @@
 #include <vector>
 #include "KIM_LogVerbosity.hpp"
 #include "StillingerWeber.hpp"
+#include "helper.hpp"
 
 #define DIMENSION 3
 #define ONE 1.0
@@ -39,22 +40,6 @@
 
 #define MAX_PARAMETER_FILES 1
 
-
-//==============================================================================
-//
-// Type definitions, enumerations, and helper function prototypes
-//
-//==============================================================================
-
-// type declaration for vector of constant dimension
-typedef double VectorOfSizeDIM[DIMENSION];
-
-// helper routine declarations
-void AllocateAndInitialize2DArray(double**& arrayPtr, int const extentZero,
-                                  int const extentOne);
-void Deallocate2DArray(double**& arrayPtr);
-void AllocateAndInitialize1DArray(double*& arrayPtr, int const extentZero);
-void Deallocate1DArray(double*& arrayPtr);
 
 //==============================================================================
 //
@@ -77,7 +62,8 @@ class StillingerWeberImplementation
   ~StillingerWeberImplementation();  // no explicit Destroy() needed here
 
   int Refresh(KIM::ModelRefresh * const modelRefresh);
-  int Compute(KIM::ModelCompute const * const modelCompute,
+  int Compute(
+      KIM::ModelCompute const * const modelCompute,
       KIM::ModelComputeArguments const * const modelComputeArguments);
   int ComputeArgumentsCreate(
       KIM::ModelComputeArgumentsCreate * const modelComputeArgumentsCreate)
@@ -102,14 +88,14 @@ class StillingerWeberImplementation
   //   Set in constructor (via functions listed below)
   //
   //
-  // KIM API: Model Fixed Parameters
-  //   Memory allocated in   AllocateFixedParameterMemory()
+  // Private Model Parameters
+  //   Memory allocated in AllocatePrivateParameterMemory() (from constructor)
   //   Memory deallocated in destructor
   //   Data set in ReadParameterFile routines
   // none
   //
-  // KIM API: Model Free Parameters whose (pointer) values never change
-  //   Memory allocated in   AllocateFreeParameterMemory() (from constructor)
+  // KIM API: Model Parameters whose (pointer) values never change
+  //   Memory allocated in AllocateParameterMemory() (from constructor)
   //   Memory deallocated in destructor
   //   Data set in ReadParameterFile routines OR by KIM Simulator
   double* cutoff_;
@@ -127,14 +113,14 @@ class StillingerWeberImplementation
   //   Set in Refresh (via SetRefreshMutableValues)
   //
   //
-  // KIM API: Model Fixed Parameters
+  // KIM API: Model Parameters (can be changed directly by KIM Simulator)
   // none
   //
-  // KIM API: Model Free Parameters
-  // none
-  //
-  // StillingerWeberImplementation: values
+  // StillingerWeberImplementation: values (changed only by Refresh())
   double influenceDistance_;
+  int paddingNeighborHints_;
+  int halfListHints_;
+
   double** cutoffSq_2D_;
   double** A_2D_;
   double** B_2D_;
@@ -158,20 +144,21 @@ class StillingerWeberImplementation
   //
   //
   // Related to constructor
-  void AllocateFreeParameterMemory();
+  void AllocatePrivateParameterMemory();
+  void AllocateParameterMemory();
   static int OpenParameterFiles(
       KIM::ModelDriverCreate * const modelDriverCreate,
       int const numberParameterFiles,
       FILE* parameterFilePointers[MAX_PARAMETER_FILES]);
-  static void CloseParameterFiles(
-      int const numberParameterFiles,
-      FILE* const parameterFilePointers[MAX_PARAMETER_FILES]);
   int ProcessParameterFiles(
       KIM::ModelDriverCreate * const modelDriverCreate,
       int const numberParameterFiles,
       FILE* const parameterFilePointers[MAX_PARAMETER_FILES]);
   void getNextDataLine(FILE* const filePtr, char* const nextLine,
                        int const maxSize, int* endOfFileFlag);
+  static void CloseParameterFiles(
+      int const numberParameterFiles,
+      FILE* const parameterFilePointers[MAX_PARAMETER_FILES]);
   int ConvertUnits(
       KIM::ModelDriverCreate * const modelDriverCreate,
       KIM::LengthUnit const requestedLengthUnit,
@@ -192,54 +179,65 @@ class StillingerWeberImplementation
   //
   // Related to Compute()
   int SetComputeMutableValues(
-      KIM::ModelComputeArguments const * const modelCompute,
+      KIM::ModelComputeArguments const * const modelComputeArguments,
       bool& isComputeProcess_dEdr,
       bool& isComputeProcess_d2Edr2,
       bool& isComputeEnergy,
       bool& isComputeForces,
       bool& isComputeParticleEnergy,
-      int const*& particleSpecies,
+      bool& isComputeVirial,
+      bool& isComputeParticleVirial,
+      int const*& particleSpeciesCodes,
       int const*& particleContributing,
       VectorOfSizeDIM const*& coordinates,
       double*& energy,
+      VectorOfSizeDIM*& forces,
       double*& particleEnergy,
-      VectorOfSizeDIM*& forces);
-  int CheckParticleSpecies(KIM::ModelCompute const * const modelCompute,
-                           int const* const particleSpecies) const;
-  int GetComputeIndex(const bool& isComputeProcess_dEdr,
-                      const bool& isComputeProcess_d2Edr2,
-                      const bool& isComputeEnergy,
-                      const bool& isComputeForces,
-                      const bool& isComputeParticleEnergy) const;
+      VectorOfSizeSix*& virial,
+      VectorOfSizeSix*& particleViral);
+  int CheckParticleSpeciesCodes(KIM::ModelCompute const * const modelCompute,
+      int const* const particleSpeciesCodes) const;
+  int GetComputeIndex(
+      const bool& isComputeProcess_dEdr,
+      const bool& isComputeProcess_d2Edr2,
+      const bool& isComputeEnergy,
+      const bool& isComputeForces,
+      const bool& isComputeParticleEnergy,
+      const bool& isComputeVirial,
+      const bool& isComputeParticleVirial) const;
 
   // compute functions
-  template< bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
-            bool isComputeEnergy, bool isComputeForces,
-            bool isComputeParticleEnergy>
+  template<
+      bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
+      bool isComputeEnergy, bool isComputeForces,
+      bool isComputeParticleEnergy, bool isComputeVirial,
+      bool isComputeParticleVirial>
   int Compute(KIM::ModelCompute const * const modelCompute,
-              KIM::ModelComputeArguments const * const modelComputeArguments,
-              const int* const particleSpecies,
-              const int* const particleContributing,
-              const VectorOfSizeDIM* const coordinates,
-              double* const energy,
-              VectorOfSizeDIM* const forces,
-              double* const particleEnergy);
+      KIM::ModelComputeArguments const * const modelComputeArguments,
+      const int* const particleSpeciesCodes,
+      const int* const particleContributing,
+      const VectorOfSizeDIM* const coordinates,
+      double* const energy,
+      VectorOfSizeDIM* const forces,
+      double* const particleEnergy,
+      VectorOfSizeSix virial,
+      VectorOfSizeSix* const particleVirial) const;
 
 
   // Stillinger-Weber functions
-  void CalcPhiTwo(int ispec, int jspec, double r, double& phi);
-  void CalcPhiDphiTwo(int ispec, int jspec, double r, double& phi, double& dphi);
-  void CalcPhiD2phiTwo(int ispec, int jspec, double r,
-                       double& phi, double& dphi, double& d2phi);
-  void CalcPhiThree(int ispec, int jspec, int kspec,
-                    double rij, double rik, double rjk,
-                    double& phi);
-  void CalcPhiDphiThree(int ispec, int jspec, int kspec,
-                        double rij, double rik, double rjk,
-                        double& phi, double *const dphi);
-  void CalcPhiD2phiThree(int ispec, int jspec, int kspec,
-                         double rij, double rik, double rjk,
-                         double& phi, double *const dphi, double *const d2phi);
+  void CalcPhiTwo(int const ispec, int const jspec, double const r, double& phi) const;
+  void CalcPhiDphiTwo(int const ispec, int const jspec, double const r,
+      double& phi, double& dphi) const;
+  void CalcPhiD2phiTwo(int const ispec, int const jspec, double const r,
+      double& phi, double& dphi, double& d2phi) const;
+  void CalcPhiThree(int const ispec, int const jspec, int const kspec,
+      double const rij, double const rik, double const rjk, double& phi) const;
+  void CalcPhiDphiThree(int const ispec, int const jspec, int const kspec,
+      double const rij, double const rik, double const rjk,
+      double& phi, double *const dphi) const;
+  void CalcPhiD2phiThree(int const ispec, int const jspec, int const kspec,
+      double const rij, double const rik, double const rjk,
+      double& phi, double *const dphi, double *const d2phi) const;
 
 
 };
@@ -255,18 +253,22 @@ class StillingerWeberImplementation
 //==============================================================================
 
 #include "KIM_ModelComputeLogMacros.hpp"
-template< bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
-          bool isComputeEnergy, bool isComputeForces,
-          bool isComputeParticleEnergy>
+template<
+    bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
+    bool isComputeEnergy, bool isComputeForces,
+    bool isComputeParticleEnergy, bool isComputeVirial,
+    bool isComputeParticleVirial>
 int StillingerWeberImplementation::Compute(
     KIM::ModelCompute const * const modelCompute,
     KIM::ModelComputeArguments const * const modelComputeArguments,
-    const int* const particleSpecies,
+    const int* const particleSpeciesCodes,
     const int* const particleContributing,
     const VectorOfSizeDIM* const coordinates,
     double* const energy,
     VectorOfSizeDIM* const forces,
-    double* const particleEnergy)
+    double* const particleEnergy,
+    VectorOfSizeSix virial,
+    VectorOfSizeSix* const particleVirial) const
 {
   int ier = false;
 
@@ -274,18 +276,14 @@ int StillingerWeberImplementation::Compute(
       (isComputeParticleEnergy == false) &&
       (isComputeForces == false) &&
       (isComputeProcess_dEdr == false) &&
-      (isComputeProcess_d2Edr2 == false))
+      (isComputeProcess_d2Edr2 == false) &&
+      (isComputeVirial == false) &&
+      (isComputeParticleVirial == false))
     return ier;
 
   // initialize energy and forces
   if (isComputeEnergy == true) {
     *energy = 0.0;
-  }
-
-  if (isComputeParticleEnergy == true) {
-    for (int i = 0; i < cachedNumberOfParticles_; ++i) {
-      particleEnergy[i] = 0.0;
-    }
   }
 
   if (isComputeForces == true) {
@@ -295,22 +293,40 @@ int StillingerWeberImplementation::Compute(
     }
   }
 
+  if (isComputeParticleEnergy == true) {
+    for (int i = 0; i < cachedNumberOfParticles_; ++i) {
+      particleEnergy[i] = 0.0;
+    }
+  }
+
+  if (isComputeVirial == true) {
+    for (int i = 0; i < 6; ++i) virial[i] = 0.0;
+  }
+
+  if (isComputeParticleVirial == true) {
+    for (int i = 0; i < cachedNumberOfParticles_; ++i) {
+      for (int j = 0; j < 6; ++j)
+        particleVirial[i][j] = 0.0;
+    }
+  }
+
+
   // calculate contribution from pair function
   //
   // Setup loop over contributing particles
   int i = 0;
   int numnei = 0;
-  int const * n1atom = 0;
+  int const * n1atom = NULL;
 
   for (i = 0; i < cachedNumberOfParticles_; ++i) {
     if (particleContributing[i]) {
       modelComputeArguments->GetNeighborList(0, i, &numnei, &n1atom);
-      int const iSpecies = particleSpecies[i];
+      int const iSpecies = particleSpeciesCodes[i];
 
       // Setup loop over neighbors of current particle
       for (int jj = 0; jj < numnei; ++jj) {
         int const j = n1atom[jj];
-        int const jSpecies = particleSpecies[j];
+        int const jSpecies = particleSpeciesCodes[j];
 
         // Compute rij
         double rij[DIMENSION];
@@ -336,7 +352,8 @@ int StillingerWeberImplementation::Compute(
             dEidr_two = 0.5*dphi_two;
             d2Eidr2_two = 0.5*d2phi_two;
           }
-          else if ((isComputeProcess_dEdr == true) || (isComputeForces == true)) {
+          else if ((isComputeProcess_dEdr == true) || (isComputeForces == true) ||
+              (isComputeVirial == true) || (isComputeParticleVirial == true) ) {
             CalcPhiDphiTwo(iSpecies, jSpecies, rij_mag, phi_two, dphi_two);
             dEidr_two = 0.5*dphi_two;
           }
@@ -348,12 +365,6 @@ int StillingerWeberImplementation::Compute(
           if (isComputeEnergy == true) {
             *energy += 0.5*phi_two;
           }
-
-          // Contribution to particleEnergy
-          if (isComputeParticleEnergy == true) {
-            particleEnergy[i] += 0.5*phi_two;
-          }
-
           // Contribution to forces
           if (isComputeForces == true) {
             for (int dim = 0; dim < DIMENSION; ++dim) {
@@ -363,11 +374,26 @@ int StillingerWeberImplementation::Compute(
             }
           }
 
+          // Contribution to particleEnergy
+          if (isComputeParticleEnergy == true) {
+            particleEnergy[i] += 0.5*phi_two;
+          }
+
+          // Contribution to virial
+          if (isComputeVirial == true) {
+            ProcessVirialTerm(dEidr_two, rij_mag, rij, i, j, virial);
+          }
+
+          // Contribution to particleVirial
+          if (isComputeParticleVirial == true) {
+            ProcessParticleVirialTerm(dEidr_two, rij_mag, rij, i, j, particleVirial);
+          }
+
           // Call process_dEdr
           if (isComputeProcess_dEdr == true) {
             ier = modelComputeArguments->ProcessDEDrTerm(dEidr_two, rij_mag, rij, i, j);
             if (ier) {
-              LOG_ERROR("process_dEdr");
+              LOG_ERROR("ProcessDEdr");
               return ier;
             }
           }
@@ -388,7 +414,7 @@ int StillingerWeberImplementation::Compute(
             ier = modelComputeArguments->ProcessD2EDr2Term(d2Eidr2_two, pRs,
                 pRijConsts, pis, pjs);
             if (ier) {
-              LOG_ERROR("process_d2Edr2");
+              LOG_ERROR("ProcessD2Edr2");
               return ier;
             }
           }
@@ -398,7 +424,7 @@ int StillingerWeberImplementation::Compute(
           for (int kk = jj+1; kk < numnei; ++kk)
           {
             int const k = n1atom[kk];
-            int const kSpecies = particleSpecies[k];
+            int const kSpecies = particleSpeciesCodes[k];
 
             // Compute rik and rjk vector
             double rik[DIMENSION];
@@ -441,7 +467,8 @@ int StillingerWeberImplementation::Compute(
                 d2Eidr2_three[4] = d2phi_three[4];
                 d2Eidr2_three[5] = d2phi_three[5];
               }
-              else if ((isComputeProcess_dEdr == true) || (isComputeForces == true)) {
+              else if ((isComputeProcess_dEdr == true) || (isComputeForces == true) ||
+                  (isComputeVirial == true) || (isComputeParticleVirial == true) ) {
                 CalcPhiDphiThree(iSpecies, jSpecies, kSpecies,
                     rij_mag, rik_mag, rjk_mag, phi_three, dphi_three);
 
@@ -459,11 +486,6 @@ int StillingerWeberImplementation::Compute(
                 *energy += phi_three;
               }
 
-              // Contribution to particleEnergy
-              if (isComputeParticleEnergy == true) {
-                particleEnergy[i] += phi_three;
-              }
-
               // Contribution to forces
               if (isComputeForces == true) {
                 for (int dim = 0; dim < DIMENSION; ++dim) {
@@ -476,6 +498,25 @@ int StillingerWeberImplementation::Compute(
                 }
               }
 
+              // Contribution to particleEnergy
+              if (isComputeParticleEnergy == true) {
+                particleEnergy[i] += phi_three;
+              }
+
+              // Contribution to virial
+              if (isComputeVirial == true) {
+                ProcessVirialTerm(dEidr_three[0], rij_mag, rij, i, j, virial);
+                ProcessVirialTerm(dEidr_three[1], rik_mag, rik, i, k, virial);
+                ProcessVirialTerm(dEidr_three[2], rjk_mag, rjk, j, k, virial);
+              }
+
+              // Contribution to particleVirial
+              if (isComputeParticleVirial == true) {
+                ProcessParticleVirialTerm(dEidr_three[0], rij_mag, rij, i, j, particleVirial);
+                ProcessParticleVirialTerm(dEidr_three[1], rik_mag, rik, i, k, particleVirial);
+                ProcessParticleVirialTerm(dEidr_three[2], rjk_mag, rjk, j, k, particleVirial);
+              }
+
               // Call process_dEdr
               if (isComputeProcess_dEdr == true) {
                 ier = modelComputeArguments
@@ -485,7 +526,7 @@ int StillingerWeberImplementation::Compute(
                    || modelComputeArguments
                       ->ProcessDEDrTerm(dEidr_three[2], rjk_mag, rjk, j, k);
                 if (ier) {
-                  LOG_ERROR("process_dEdr");
+                  LOG_ERROR("ProcessDEdr");
                   return ier;
                 }
               }
@@ -510,7 +551,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[0], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -523,7 +564,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[1], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -536,7 +577,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[2], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -555,7 +596,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[3], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -574,7 +615,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[3], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -593,7 +634,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[4], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -613,7 +654,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[4], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -632,7 +673,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[5], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
 
@@ -651,7 +692,7 @@ int StillingerWeberImplementation::Compute(
                 ier = modelComputeArguments
                       ->ProcessD2EDr2Term(d2Eidr2_three[5], pRs, pRijConsts, pis, pjs);
                 if (ier) {
-                  LOG_ERROR("process_d2Edr2");
+                  LOG_ERROR("ProcessD2Edr2");
                   return ier;
                 }
               }  // Process_D2Edr2
