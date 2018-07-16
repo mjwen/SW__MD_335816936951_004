@@ -1,6 +1,6 @@
 {
   "title" "Three-body Stillinger-Weber (SW) Model Driver"
-  "extended-id" "Three_Body_Stillinger_Weber__MD_335816936951_002"
+  "extended-id" "Three_Body_Stillinger_Weber__MD_335816936951_003"
   "author" "Mingjian Wen"
   "description" "This is a model driver for the generalized Stillinger-Weber (SW) three-body potential supporting multiple species. It is consistent with 'pair_style sw' in the LAMMPS package, but the parameter file has a different format and the driver is less general than the LAMMPS implementation. Specifically, in the KIM parameter file, only independent pairwise parameters are read in and the three-body parameters are generated through geometric averaging. In addition, the costheta_0 parameter is assumed to be the same for all three-body interactions and the tolerance parameter introduced in LAMMPS for efficiency is not supported. See the README file for details. A Python utility \"lammps_sw_2_kim_sw.py\" is provided to translate LAMMPS pair_style sw parameter files to the KIM model driver format."
   "source-citations" [{"title" "Computer simulation of local order in condensed phases of silicon"
