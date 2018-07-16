@@ -37,7 +37,7 @@
 #include "StillingerWeberImplementation.hpp"
 #include "KIM_ModelDriverHeaders.hpp"
 
-#define MAXLINE    1024
+#define MAXLINE 1024
 
 
 //==============================================================================
@@ -139,32 +139,31 @@ StillingerWeberImplementation::~StillingerWeberImplementation()
 { // note: it is ok to delete a null pointer and we have ensured that
   // everything is initialized to null
 
-  Deallocate1DArray(A_);
-  Deallocate1DArray(B_);
-  Deallocate1DArray(p_);
-  Deallocate1DArray(q_);
-  Deallocate1DArray(sigma_);
-  Deallocate1DArray(lambda_);
-  Deallocate1DArray(gamma_);
-  Deallocate1DArray(costheta0_);
-  Deallocate1DArray(cutoff_);
+  Deallocate1DArray<double>(A_);
+  Deallocate1DArray<double>(B_);
+  Deallocate1DArray<double>(p_);
+  Deallocate1DArray<double>(q_);
+  Deallocate1DArray<double>(sigma_);
+  Deallocate1DArray<double>(lambda_);
+  Deallocate1DArray<double>(gamma_);
+  Deallocate1DArray<double>(costheta0_);
+  Deallocate1DArray<double>(cutoff_);
 
-  Deallocate2DArray(A_2D_);
-  Deallocate2DArray(B_2D_);
-  Deallocate2DArray(p_2D_);
-  Deallocate2DArray(q_2D_);
-  Deallocate2DArray(sigma_2D_);
-  Deallocate2DArray(lambda_2D_);
-  Deallocate2DArray(gamma_2D_);
-  Deallocate2DArray(costheta0_2D_);
-  Deallocate2DArray(cutoffSq_2D_);
+  Deallocate2DArray<double>(A_2D_);
+  Deallocate2DArray<double>(B_2D_);
+  Deallocate2DArray<double>(p_2D_);
+  Deallocate2DArray<double>(q_2D_);
+  Deallocate2DArray<double>(sigma_2D_);
+  Deallocate2DArray<double>(lambda_2D_);
+  Deallocate2DArray<double>(gamma_2D_);
+  Deallocate2DArray<double>(costheta0_2D_);
+  Deallocate2DArray<double>(cutoffSq_2D_);
 }
 
 
 //******************************************************************************
 #include "KIM_ModelRefreshLogMacros.hpp"
-int StillingerWeberImplementation::Refresh(
-    KIM::ModelRefresh* const modelRefresh)
+int StillingerWeberImplementation::Refresh(KIM::ModelRefresh* const modelRefresh)
 {
   int ier;
 
@@ -381,8 +380,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   }
 
   // keep track of known species
-  std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>
-  modelSpeciesMap;
+  std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator> modelSpeciesMap;
   int index = 0;   // species code integer code starting from 0
 
   // Read and process data lines
@@ -401,6 +399,13 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     // convert species strings to proper type instances
     KIM::SpeciesName const specName1(spec1);
     KIM::SpeciesName const specName2(spec2);
+     if ((specName1.String() == "unknown") ||
+         (specName2.String() == "unknown") ) {
+      sprintf(nextLine, "error parameter file: get unknown species");
+      LOG_ERROR(nextLine);
+      return true;
+    }
+
 
     // check for new species
     std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>::
@@ -843,13 +848,12 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 #include "KIM_ModelComputeLogMacros.hpp"
 int StillingerWeberImplementation::CheckParticleSpeciesCodes(
     KIM::ModelCompute const* const modelCompute,
-    int const* const particleSpecies)
-const
+    int const* const particleSpeciesCodes) const
 {
   int ier;
 
   for (int i = 0; i < cachedNumberOfParticles_; ++i) {
-    if ((particleSpecies[i] < 0) || (particleSpecies[i] >= numberModelSpecies_)) {
+    if ((particleSpeciesCodes[i] < 0) || (particleSpeciesCodes[i] >= numberModelSpecies_)) {
       ier = true;
       LOG_ERROR("unsupported particle species codes detected");
       return ier;

@@ -24,7 +24,7 @@
 //
 // Contributors:
 //    Mingjian Wen
-
+//
 
 #ifndef HELPER_H_
 #define HELPER_H_

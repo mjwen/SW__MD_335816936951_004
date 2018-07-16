@@ -24,6 +24,7 @@
 //
 // Contributors:
 //    Mingjian Wen
+//
 
 
 #ifndef STILLINGER_WEBER_IMPLEMENTATION_HPP_
@@ -51,7 +52,8 @@
 class StillingerWeberImplementation
 {
 public:
-  StillingerWeberImplementation(KIM::ModelDriverCreate* const modelDriverCreate,
+  StillingerWeberImplementation(
+      KIM::ModelDriverCreate* const modelDriverCreate,
       KIM::LengthUnit const requestedLengthUnit,
       KIM::EnergyUnit const requestedEnergyUnit,
       KIM::ChargeUnit const requestedChargeUnit,
@@ -448,7 +450,7 @@ int StillingerWeberImplementation::Compute(
             double const rjk_mag = sqrt(rjk_sq);
 
 
-            /* compute energy and force */
+            // compute energy and force
             if (rik_sq <= cutoffSq_2D_[iSpecies][kSpecies]) {
               // three-body contributions
               double phi_three;
@@ -457,7 +459,7 @@ int StillingerWeberImplementation::Compute(
               double dEidr_three[3];
               double d2Eidr2_three[6];
 
-              /* compute three-body potential and its derivatives */
+              // compute three-body potential and its derivatives
               if (isComputeProcess_d2Edr2 == true) {
                 CalcPhiD2phiThree(iSpecies, jSpecies, kSpecies,
                     rij_mag, rik_mag, rjk_mag, phi_three, dphi_three, d2phi_three);

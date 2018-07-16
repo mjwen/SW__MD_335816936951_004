@@ -19,11 +19,12 @@
 //
 
 //
-// Copyright (c) 2015, Regents of the University of Minnesota.
+// Copyright (c) 2018, Regents of the University of Minnesota.
 // All rights reserved.
 //
 // Contributors:
 //    Mingjian Wen
+//
 
 
 #include <cmath>
