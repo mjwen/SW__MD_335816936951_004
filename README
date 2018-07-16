@@ -95,15 +95,6 @@ References:
 
 The following files are in this directory:
 
-LICENSE.CDDL
-    The Common Development and Distribution License (CDDL) Version 1.0 file
-
-Makefile
-    makefile to compile and build executables with GNU or Intel compilers
-
-README
-    This file
-
 StillingerWeberImplementation.hpp
 StillingerWeberImplementation.cpp
     Stillinger-Weber potential implementation.
@@ -112,5 +103,16 @@ StillingerWeber.hpp
 StillingerWeber.cpp
     Wrapper class of implementation.
 
+helper.hpp
+helper.cpp
 CreateDispatch.sh
     Helper functions.
+
+LICENSE.CDDL
+    The Common Development and Distribution License (CDDL) Version 1.0 file
+
+Makefile
+    makefile to compile and build executables with GNU or Intel compilers
+
+README
+    This file
