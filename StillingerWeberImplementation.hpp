@@ -116,8 +116,7 @@ private:
   //
   // StillingerWeberImplementation: values (changed only by Refresh())
   double influenceDistance_;
-  int paddingNeighborHints_;
-  int halfListHints_;
+  int modelWillNotRequestNeighborsOfNoncontributingParticles_;
 
   double** cutoffSq_2D_;
   double** A_2D_;
@@ -349,7 +348,7 @@ int StillingerWeberImplementation::Compute(
 
           // two-body contributions
 
-          if (i < j) {  // effective half list
+          if (!(particleContributing[j] && j < i)) {  // effective half list
             double phi_two = 0.0;
             double dphi_two = 0.0;
             double d2phi_two = 0.0;

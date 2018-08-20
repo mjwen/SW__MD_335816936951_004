@@ -26,8 +26,8 @@
 #
 
 
-This directory (Three_Body_Stillinger_Weber__MD_335816936951_003) contains
-Stillinger-Weber (SW) potential Model Driver for multiple species.
+This directory contains Stillinger-Weber (SW) potential Model Driver
+for multiple species.
 
 1. Use of a subset of all the supported species is valid.  For example, if the
    model supports 3 species A, B, and C as listed in the parameter file, the use
@@ -91,28 +91,3 @@ References:
 
 3. X. W. Zhou, D. K. Ward, and J. E. Martin, et al, "Stillinger-Weber potential
    for the II-VI elements Zn-Cd-Hg-S-Se-Te" Phys. Rev. B, 88, 085309, 2013.
-
-
-The following files are in this directory:
-
-StillingerWeberImplementation.hpp
-StillingerWeberImplementation.cpp
-    Stillinger-Weber potential implementation.
-
-StillingerWeber.hpp
-StillingerWeber.cpp
-    Wrapper class of implementation.
-
-helper.hpp
-helper.cpp
-CreateDispatch.sh
-    Helper functions.
-
-LICENSE.CDDL
-    The Common Development and Distribution License (CDDL) Version 1.0 file
-
-Makefile
-    makefile to compile and build executables with GNU or Intel compilers
-
-README
-    This file

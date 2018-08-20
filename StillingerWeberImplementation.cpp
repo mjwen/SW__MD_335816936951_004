@@ -68,8 +68,7 @@ StillingerWeberImplementation::StillingerWeberImplementation(
   gamma_(NULL),
   costheta0_(NULL),
   influenceDistance_(0.0),
-  paddingNeighborHints_(1),
-  halfListHints_(0),
+  modelWillNotRequestNeighborsOfNoncontributingParticles_(1),
   cutoffSq_2D_(NULL),
   A_2D_(NULL),
   B_2D_(NULL),
@@ -750,7 +749,7 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
   influenceDistance_ = sqrt(influenceDistance_);
   modelObj->SetInfluenceDistancePointer(&influenceDistance_);
   modelObj->SetNeighborListPointers(1,
-      &influenceDistance_, &paddingNeighborHints_, &halfListHints_);
+      &influenceDistance_, &modelWillNotRequestNeighborsOfNoncontributingParticles_);
 
   // everything is good
   ier = false;
