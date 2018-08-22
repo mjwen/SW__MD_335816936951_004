@@ -255,6 +255,7 @@ int StillingerWeberImplementation::ComputeArgumentsDestroy(
 const
 {
   int ier;
+  (void) modelComputeArgumentsDestroy; // avoid not used warning
 
   // nothing else to do for this case
 
@@ -359,6 +360,8 @@ int StillingerWeberImplementation::ProcessParameterFiles(
   int iIndex, jIndex, indx;
   double next_A, next_B, next_p, next_q, next_sigma, next_lambda, next_gamma;
   double next_costheta0, next_cutoff;
+
+  (void) numberParameterFiles; // avoid not used warning
 
   getNextDataLine(parameterFilePointers[0], nextLine, MAXLINE, &endOfFileFlag);
   ier = sscanf(nextLine, "%d", &N);
