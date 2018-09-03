@@ -642,6 +642,10 @@ int StillingerWeberImplementation::RegisterKIMComputeArgumentsSettings(
 
 
 //******************************************************************************
+// helper macro
+#define SNUM( x  ) static_cast<std::ostringstream &>(    \
+    std::ostringstream() << std::dec << x).str()
+
 #include "KIM_ModelDriverCreateLogMacros.hpp"
 int StillingerWeberImplementation::RegisterKIMParameters(
     KIM::ModelDriverCreate* const modelDriverCreate)
@@ -651,23 +655,70 @@ int StillingerWeberImplementation::RegisterKIMParameters(
   // publish parameters (order is important)
   ier =
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, A_, "A") ||
+        numberUniqueSpeciesPairs_, A_, "A",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, B_, "B") ||
+        numberUniqueSpeciesPairs_, B_, "B",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, p_, "p") ||
+        numberUniqueSpeciesPairs_, p_, "p",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, q_, "q") ||
+        numberUniqueSpeciesPairs_, q_, "q",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, sigma_, "sigma") ||
+        numberUniqueSpeciesPairs_, sigma_, "sigma",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, lambda_, "lambda") ||
+        numberUniqueSpeciesPairs_, lambda_, "lambda",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).  "
+        "This three-body parameter internally follows the mixing rule: "
+        "lambda_ijk = sqrt(lambda_ij*lambda_ik).") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, gamma_, "gamma") ||
+        numberUniqueSpeciesPairs_, gamma_, "gamma",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, costheta0_, "costheta0") ||
+        numberUniqueSpeciesPairs_, costheta0_, "costheta0",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).  This parameter is not internally mixed.") ||
     modelDriverCreate->SetParameterPointer(
-        numberUniqueSpeciesPairs_, cutoff_, "cutoff");
+        numberUniqueSpeciesPairs_, cutoff_, "cutoff",
+        "Upper-triangular matrix (of size N=" + SNUM(numberUniqueSpeciesPairs_) + ") "
+        "in row-major storage.  Ordering is according to SpeciesCode values.  "
+        "For example, to find the parameter related to SpeciesCode 'i' and "
+        "SpeciesCode 'j' (i <= j), use (zero-based) "
+        "index = (i*N + j - (i*i + i)/2).");
   if (ier) {
     LOG_ERROR("set_parameters");
     return ier;
