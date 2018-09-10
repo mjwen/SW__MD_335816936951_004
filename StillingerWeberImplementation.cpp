@@ -741,19 +741,19 @@ const
   error =
     modelDriverCreate->SetDestroyPointer(
         KIM::LANGUAGE_NAME::cpp,
-        (KIM::func*)&(StillingerWeber::Destroy)) ||
+        (KIM::Function*)&(StillingerWeber::Destroy)) ||
     modelDriverCreate->SetRefreshPointer(
         KIM::LANGUAGE_NAME::cpp,
-        (KIM::func*)&(StillingerWeber::Refresh)) ||
+        (KIM::Function*)&(StillingerWeber::Refresh)) ||
     modelDriverCreate->SetComputePointer(
         KIM::LANGUAGE_NAME::cpp,
-        (KIM::func*)&(StillingerWeber::Compute)) ||
+        (KIM::Function*)&(StillingerWeber::Compute)) ||
     modelDriverCreate->SetComputeArgumentsCreatePointer(
         KIM::LANGUAGE_NAME::cpp,
-        (KIM::func*)&(StillingerWeber::ComputeArgumentsCreate)) ||
+        (KIM::Function*)&(StillingerWeber::ComputeArgumentsCreate)) ||
     modelDriverCreate->SetComputeArgumentsDestroyPointer(
         KIM::LANGUAGE_NAME::cpp,
-        (KIM::func*)&(StillingerWeber::ComputeArgumentsDestroy));
+        (KIM::Function*)&(StillingerWeber::ComputeArgumentsDestroy));
 
   return error;
 }
