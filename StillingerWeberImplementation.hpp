@@ -31,6 +31,7 @@
 #define STILLINGER_WEBER_IMPLEMENTATION_HPP_
 
 #include <vector>
+#include "KIM_LogMacros.hpp"
 #include "KIM_LogVerbosity.hpp"
 #include "StillingerWeber.hpp"
 #include "helper.hpp"
@@ -252,8 +253,8 @@ private:
 //       and easy maintenance.
 //
 //==============================================================================
+#define KIM_LOGGER_OBJECT_NAME modelCompute
 
-#include "KIM_ModelComputeLogMacros.hpp"
 template<bool isComputeProcess_dEdr, bool isComputeProcess_d2Edr2,
     bool isComputeEnergy, bool isComputeForces,
     bool isComputeParticleEnergy, bool isComputeVirial,

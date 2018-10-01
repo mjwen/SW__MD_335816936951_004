@@ -47,7 +47,9 @@
 //==============================================================================
 
 //******************************************************************************
-#include "KIM_ModelDriverCreateLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelDriverCreate
+
 StillingerWeberImplementation::StillingerWeberImplementation(
   KIM::ModelDriverCreate* const modelDriverCreate,
   KIM::LengthUnit const requestedLengthUnit,
@@ -161,7 +163,9 @@ StillingerWeberImplementation::~StillingerWeberImplementation()
 
 
 //******************************************************************************
-#include "KIM_ModelRefreshLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelRefresh
+
 int StillingerWeberImplementation::Refresh(KIM::ModelRefresh* const modelRefresh)
 {
   int ier;
@@ -304,7 +308,9 @@ void StillingerWeberImplementation::AllocateParameterMemory()
 
 
 //******************************************************************************
-#include "KIM_ModelDriverCreateLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelDriverCreate
+
 int StillingerWeberImplementation::OpenParameterFiles(
     KIM::ModelDriverCreate* const modelDriverCreate,
     int const numberParameterFiles,
@@ -348,7 +354,9 @@ int StillingerWeberImplementation::OpenParameterFiles(
 
 
 //******************************************************************************
-#include "KIM_ModelDriverCreateLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelDriverCreate
+
 int StillingerWeberImplementation::ProcessParameterFiles(
     KIM::ModelDriverCreate* const modelDriverCreate,
     int const numberParameterFiles,
@@ -512,7 +520,9 @@ void StillingerWeberImplementation::CloseParameterFiles(
 
 
 //******************************************************************************
-#include "KIM_ModelDriverCreateLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelDriverCreate
+
 int StillingerWeberImplementation::ConvertUnits(
     KIM::ModelDriverCreate* const modelDriverCreate,
     KIM::LengthUnit const requestedLengthUnit,
@@ -602,7 +612,9 @@ int StillingerWeberImplementation::RegisterKIMModelSettings(
 
 
 //******************************************************************************
-#include "KIM_ModelComputeArgumentsCreateLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelComputeArgumentsCreate
+
 int StillingerWeberImplementation::RegisterKIMComputeArgumentsSettings(
     KIM::ModelComputeArgumentsCreate* const modelComputeArgumentsCreate) const
 {
@@ -646,7 +658,9 @@ int StillingerWeberImplementation::RegisterKIMComputeArgumentsSettings(
 #define SNUM( x  ) static_cast<std::ostringstream &>(    \
     std::ostringstream() << std::dec << x).str()
 
-#include "KIM_ModelDriverCreateLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelDriverCreate
+
 int StillingerWeberImplementation::RegisterKIMParameters(
     KIM::ModelDriverCreate* const modelDriverCreate)
 {
@@ -812,7 +826,9 @@ int StillingerWeberImplementation::SetRefreshMutableValues(
 
 
 //******************************************************************************
-#include "KIM_ModelComputeArgumentsLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelComputeArguments
+
 int StillingerWeberImplementation::SetComputeMutableValues(
     KIM::ModelComputeArguments const* const modelComputeArguments,
     bool& isComputeProcess_dEdr,
@@ -898,7 +914,8 @@ int StillingerWeberImplementation::SetComputeMutableValues(
 
 //******************************************************************************
 // Assume that the particle species interge code starts from 0
-#include "KIM_ModelComputeLogMacros.hpp"
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelCompute
 int StillingerWeberImplementation::CheckParticleSpeciesCodes(
     KIM::ModelCompute const* const modelCompute,
     int const* const particleSpeciesCodes) const
