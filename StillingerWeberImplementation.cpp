@@ -746,30 +746,48 @@ int StillingerWeberImplementation::RegisterKIMParameters(
 
 //******************************************************************************
 int StillingerWeberImplementation::RegisterKIMFunctions(
-    KIM::ModelDriverCreate* const modelDriverCreate)
-const
+    KIM::ModelDriverCreate* const modelDriverCreate) const
 {
   int error;
 
-  // register the Destroy(), Refresh(), and Compute() functions
-  error =
-    modelDriverCreate->SetDestroyPointer(
-        KIM::LANGUAGE_NAME::cpp,
-        (KIM::Function*)&(StillingerWeber::Destroy)) ||
-    modelDriverCreate->SetRefreshPointer(
-        KIM::LANGUAGE_NAME::cpp,
-        (KIM::Function*)&(StillingerWeber::Refresh)) ||
-    modelDriverCreate->SetComputePointer(
-        KIM::LANGUAGE_NAME::cpp,
-        (KIM::Function*)&(StillingerWeber::Compute)) ||
-    modelDriverCreate->SetComputeArgumentsCreatePointer(
-        KIM::LANGUAGE_NAME::cpp,
-        (KIM::Function*)&(StillingerWeber::ComputeArgumentsCreate)) ||
-    modelDriverCreate->SetComputeArgumentsDestroyPointer(
-        KIM::LANGUAGE_NAME::cpp,
-        (KIM::Function*)&(StillingerWeber::ComputeArgumentsDestroy));
+  // Use function pointer definitions to verify correct prototypes
+  KIM::ModelDestroyFunction * destroy = StillingerWeber::Destroy;
+  KIM::ModelRefreshFunction * refresh = StillingerWeber::Refresh;
+  KIM::ModelComputeFunction * compute = StillingerWeber::Compute;
+  KIM::ModelComputeArgumentsCreateFunction * CACreate
+      = StillingerWeber::ComputeArgumentsCreate;
+  KIM::ModelComputeArgumentsDestroyFunction * CADestroy
+      = StillingerWeber::ComputeArgumentsDestroy;
 
+
+  // register the destroy() and reinit() functions
+  error = modelDriverCreate->SetRoutinePointer(
+      KIM::MODEL_ROUTINE_NAME::Destroy,
+      KIM::LANGUAGE_NAME::cpp,
+      true,
+      reinterpret_cast<KIM::Function *>(destroy))
+    || modelDriverCreate->SetRoutinePointer(
+        KIM::MODEL_ROUTINE_NAME::Refresh,
+        KIM::LANGUAGE_NAME::cpp,
+        true,
+        reinterpret_cast<KIM::Function *>(refresh))
+    || modelDriverCreate->SetRoutinePointer(
+        KIM::MODEL_ROUTINE_NAME::Compute,
+        KIM::LANGUAGE_NAME::cpp,
+        true,
+        reinterpret_cast<KIM::Function *>(compute))
+    || modelDriverCreate->SetRoutinePointer(
+        KIM::MODEL_ROUTINE_NAME::ComputeArgumentsCreate,
+        KIM::LANGUAGE_NAME::cpp,
+        true,
+        reinterpret_cast<KIM::Function *>(CACreate))
+    || modelDriverCreate->SetRoutinePointer(
+        KIM::MODEL_ROUTINE_NAME::ComputeArgumentsDestroy,
+        KIM::LANGUAGE_NAME::cpp,
+        true,
+        reinterpret_cast<KIM::Function *>(CADestroy));
   return error;
+
 }
 
 
