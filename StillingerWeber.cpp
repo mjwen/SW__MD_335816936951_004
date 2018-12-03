@@ -150,6 +150,19 @@ int StillingerWeber::Refresh(
 
 //******************************************************************************
 // static member function
+int StillingerWeber::WriteParameterizedModel(
+    KIM::ModelWriteParameterizedModel const * const modelWriteParameterizedModel)
+{
+  StillingerWeber* modelObject;
+
+  modelWriteParameterizedModel->GetModelBufferPointer(reinterpret_cast<void**> (&modelObject));
+
+  return modelObject->implementation_->WriteParameterizedModel(modelWriteParameterizedModel);
+}
+
+
+//******************************************************************************
+// static member function
 int StillingerWeber::Compute(
     KIM::ModelCompute const* const modelCompute,
     KIM::ModelComputeArguments const* const modelComputeArguments)

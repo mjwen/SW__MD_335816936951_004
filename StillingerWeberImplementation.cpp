@@ -32,6 +32,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <map>
 
 #include "StillingerWeberImplementation.hpp"
@@ -416,13 +417,13 @@ int StillingerWeberImplementation::ProcessParameterFiles(
       return true;
     }
 
-
     // check for new species
     std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>::
     const_iterator iIter = modelSpeciesMap.find(specName1);
     if (iIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName1] = index;
       modelSpeciesCodeList_.push_back(index);
+      modelSpeciesStringList_.push_back(spec1);
 
       ier = modelDriverCreate->SetSpeciesCode(specName1, index);
       if (ier) {
@@ -440,6 +441,7 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     if (jIter == modelSpeciesMap.end()) {
       modelSpeciesMap[specName2] = index;
       modelSpeciesCodeList_.push_back(index);
+      modelSpeciesStringList_.push_back(spec2);
 
       ier = modelDriverCreate->SetSpeciesCode(specName2, index);
       if (ier) {
@@ -517,6 +519,75 @@ void StillingerWeberImplementation::CloseParameterFiles(
     fclose(parameterFilePointers[i]);
   }
 }
+
+#undef  KIM_LOGGER_OBJECT_NAME
+#define KIM_LOGGER_OBJECT_NAME modelWriteParameterizedModel
+//******************************************************************************
+int StillingerWeberImplementation::WriteParameterizedModel(
+    KIM::ModelWriteParameterizedModel const * const modelWriteParameterizedModel) const
+{
+  std::string buffer;
+  std::string const * path;
+  std::string const * modelName;
+
+  modelWriteParameterizedModel->GetPath(&path);
+  modelWriteParameterizedModel->GetModelName(&modelName);
+
+  buffer = *modelName + ".params";
+  modelWriteParameterizedModel->SetParameterFileName(buffer);
+
+  buffer = *path + "/" + *modelName + ".params";
+  std::ofstream fp(buffer.c_str());
+  if (!fp.is_open()) {
+    LOG_ERROR("Unable to open parameter file for writing.");
+    return true;
+  }
+
+  // number of species
+  fp<< numberModelSpecies_<<std::endl;
+
+
+  // params
+  int const N = numberModelSpecies_;
+  for (int i=0; i<N; i++) {
+    for (int j=i; j<N; j++) {
+      int indx = i * N + j- (i * i + i) / 2;
+      fp<< modelSpeciesStringList_[i] << " "
+        << modelSpeciesStringList_[j] << " "
+        << std::scientific << std::setprecision(16)
+        << A_[indx] << " "
+        << B_[indx] << " "
+        << p_[indx] << " "
+        << q_[indx] << " "
+        << sigma_[indx] << " "
+        << lambda_[indx] << " "
+        << gamma_[indx] << " "
+        << costheta0_[indx] << " "
+        << cutoff_[indx] <<std::endl;
+
+    }
+  }
+
+  fp<<"\n\n#\n"
+    <<"# First line: number of species\n"
+    <<"#\n"
+    <<"# Then each data line lists two species and 9 parameters for the interaction\n"
+    <<"# between the two species:\n"
+    <<"#\n"
+    <<"#   species1 species2 A B p q sigma lambda gamma costheta_0 cutoff\n"
+    <<"#\n"
+    <<"#   species1 and species are valid KIM API particle species string\n"
+    <<"#   A and lambda in [eV]\n"
+    <<"#   sigma, gamma, and cutoff in [Angstrom]\n"
+    <<"#   others are unitless\n"
+    <<"#\n";
+
+  fp.close();
+
+  return false;
+}
+
+
 
 
 //******************************************************************************
@@ -754,13 +825,15 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
   KIM::ModelDestroyFunction * destroy = StillingerWeber::Destroy;
   KIM::ModelRefreshFunction * refresh = StillingerWeber::Refresh;
   KIM::ModelComputeFunction * compute = StillingerWeber::Compute;
+  KIM::ModelWriteParameterizedModelFunction * write = StillingerWeber::WriteParameterizedModel;
+
   KIM::ModelComputeArgumentsCreateFunction * CACreate
       = StillingerWeber::ComputeArgumentsCreate;
   KIM::ModelComputeArgumentsDestroyFunction * CADestroy
       = StillingerWeber::ComputeArgumentsDestroy;
 
 
-  // register the destroy() and reinit() functions
+  // register functions
   error = modelDriverCreate->SetRoutinePointer(
       KIM::MODEL_ROUTINE_NAME::Destroy,
       KIM::LANGUAGE_NAME::cpp,
@@ -776,6 +849,11 @@ int StillingerWeberImplementation::RegisterKIMFunctions(
         KIM::LANGUAGE_NAME::cpp,
         true,
         reinterpret_cast<KIM::Function *>(compute))
+    || modelDriverCreate->SetRoutinePointer(
+        KIM::MODEL_ROUTINE_NAME::WriteParameterizedModel,
+        KIM::LANGUAGE_NAME::cpp,
+        true,
+        reinterpret_cast<KIM::Function *>(write))
     || modelDriverCreate->SetRoutinePointer(
         KIM::MODEL_ROUTINE_NAME::ComputeArgumentsCreate,
         KIM::LANGUAGE_NAME::cpp,

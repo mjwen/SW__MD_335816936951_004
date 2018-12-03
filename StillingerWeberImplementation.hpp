@@ -70,6 +70,8 @@ public:
       KIM::ModelComputeArgumentsCreate* const modelComputeArgumentsCreate) const;
   int ComputeArgumentsDestroy(
       KIM::ModelComputeArgumentsDestroy* const modelComputeArgumentsDestroy) const;
+  int WriteParameterizedModel(
+    KIM::ModelWriteParameterizedModel const * const modelWriteParameterizedModel) const;
 
 
 private:
@@ -80,6 +82,7 @@ private:
   // StillingerWeberImplementation: constants
   int numberModelSpecies_;
   std::vector<int> modelSpeciesCodeList_;
+  std::vector<std::string> modelSpeciesStringList_;
   int numberUniqueSpeciesPairs_;
 
 
