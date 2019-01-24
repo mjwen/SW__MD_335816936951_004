@@ -410,12 +410,6 @@ int StillingerWeberImplementation::ProcessParameterFiles(
     // convert species strings to proper type instances
     KIM::SpeciesName const specName1(spec1);
     KIM::SpeciesName const specName2(spec2);
-     if ((specName1.String() == "unknown") ||
-         (specName2.String() == "unknown") ) {
-      sprintf(nextLine, "error parameter file: get unknown species");
-      LOG_ERROR(nextLine);
-      return true;
-    }
 
     // check for new species
     std::map<KIM::SpeciesName const, int, KIM::SPECIES_NAME::Comparator>::
