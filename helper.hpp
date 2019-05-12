@@ -33,27 +33,25 @@
 #include <cstddef>
 
 // typedefs
-typedef double   VectorOfSizeDIM[3];
-typedef double   VectorOfSizeSix[6];
+typedef double VectorOfSizeDIM[3];
+typedef double VectorOfSizeSix[6];
 
 
 // 1D Array
 //******************************************************************************
 template<class T>
-void AllocateAndInitialize1DArray(T*& arrayPtr, int const extent)
+void AllocateAndInitialize1DArray(T *& arrayPtr, int const extent)
 {
   arrayPtr = new T[extent];
-  for (int i = 0; i < extent; ++i) {
-    arrayPtr[i] = 0.0;
-  }
+  for (int i = 0; i < extent; ++i) { arrayPtr[i] = 0.0; }
 }
 
 
 // deallocate memory
 template<class T>
-void Deallocate1DArray(T*& arrayPtr)
+void Deallocate1DArray(T *& arrayPtr)
 {
-  delete [] arrayPtr;
+  delete[] arrayPtr;
   // nullify pointer
   arrayPtr = NULL;
 }
@@ -63,32 +61,29 @@ void Deallocate1DArray(T*& arrayPtr)
 //******************************************************************************
 // allocate memory and set pointers
 template<class T>
-void AllocateAndInitialize2DArray(T**& arrayPtr, int const extentZero,
-    int const extentOne)
+void AllocateAndInitialize2DArray(T **& arrayPtr,
+                                  int const extentZero,
+                                  int const extentOne)
 {
-  arrayPtr = new T*[extentZero];
+  arrayPtr = new T *[extentZero];
   arrayPtr[0] = new T[extentZero * extentOne];
-  for (int i = 1; i < extentZero; ++i) {
-    arrayPtr[i] = arrayPtr[i - 1] + extentOne;
-  }
+  for (int i = 1; i < extentZero; ++i)
+  { arrayPtr[i] = arrayPtr[i - 1] + extentOne; }
 
   // initialize
-  for (int i = 0; i < extentZero; ++i) {
-    for (int j = 0; j < extentOne; ++j) {
-      arrayPtr[i][j] = 0.0;
-    }
+  for (int i = 0; i < extentZero; ++i)
+  {
+    for (int j = 0; j < extentOne; ++j) { arrayPtr[i][j] = 0.0; }
   }
 }
 
 
 // deallocate memory
 template<class T>
-void Deallocate2DArray(T**& arrayPtr)
+void Deallocate2DArray(T **& arrayPtr)
 {
-  if (arrayPtr != NULL) {
-    delete [] arrayPtr[0];
-  }
-  delete [] arrayPtr;
+  if (arrayPtr != NULL) { delete[] arrayPtr[0]; }
+  delete[] arrayPtr;
 
   // nullify pointer
   arrayPtr = NULL;
@@ -99,30 +94,33 @@ void Deallocate2DArray(T**& arrayPtr)
 //******************************************************************************
 // allocate memory and set pointers
 template<class T>
-void AllocateAndInitialize3DArray(T***& arrayPtr, int const extentZero,
-    int const extentOne, int const extentTwo)
+void AllocateAndInitialize3DArray(T ***& arrayPtr,
+                                  int const extentZero,
+                                  int const extentOne,
+                                  int const extentTwo)
 {
-  arrayPtr = new T * *[extentZero];
-  arrayPtr[0] = new T*[extentZero * extentOne];
+  arrayPtr = new T **[extentZero];
+  arrayPtr[0] = new T *[extentZero * extentOne];
   arrayPtr[0][0] = new T[extentZero * extentOne * extentTwo];
 
-  for (int i = 1; i < extentZero; ++i) {
+  for (int i = 1; i < extentZero; ++i)
+  {
     arrayPtr[i] = arrayPtr[i - 1] + extentOne;
     arrayPtr[i][0] = arrayPtr[i - 1][0] + extentOne * extentTwo;
   }
 
-  for (int i = 0; i < extentZero; ++i) {
-    for (int j = 1; j < extentOne; ++j) {
-      arrayPtr[i][j] = arrayPtr[i][j - 1] + extentTwo;
-    }
+  for (int i = 0; i < extentZero; ++i)
+  {
+    for (int j = 1; j < extentOne; ++j)
+    { arrayPtr[i][j] = arrayPtr[i][j - 1] + extentTwo; }
   }
 
   // initialize
-  for (int i = 0; i < extentZero; ++i) {
-    for (int j = 0; j < extentOne; ++j) {
-      for (int k = 0; k < extentTwo; ++k) {
-        arrayPtr[i][j][k] = 0.0;
-      }
+  for (int i = 0; i < extentZero; ++i)
+  {
+    for (int j = 0; j < extentOne; ++j)
+    {
+      for (int k = 0; k < extentTwo; ++k) { arrayPtr[i][j][k] = 0.0; }
     }
   }
 }
@@ -130,15 +128,14 @@ void AllocateAndInitialize3DArray(T***& arrayPtr, int const extentZero,
 
 // deallocate memory
 template<class T>
-void Deallocate3DArray(T***& arrayPtr)
+void Deallocate3DArray(T ***& arrayPtr)
 {
-  if (arrayPtr != NULL) {
-    if (arrayPtr[0] != NULL) {
-      delete [] arrayPtr[0][0];
-    }
-    delete [] arrayPtr[0];
+  if (arrayPtr != NULL)
+  {
+    if (arrayPtr[0] != NULL) { delete[] arrayPtr[0][0]; }
+    delete[] arrayPtr[0];
   }
-  delete [] arrayPtr;
+  delete[] arrayPtr;
 
   // nullify pointer
   arrayPtr = NULL;
@@ -147,11 +144,16 @@ void Deallocate3DArray(T***& arrayPtr)
 
 // process virial
 //******************************************************************************
-void ProcessVirialTerm(double const dEidr, double const rij,
-    double const* const r_ij, int const i, int const j, VectorOfSizeSix virial);
+void ProcessVirialTerm(double const dEidr,
+                       double const rij,
+                       double const * const r_ij,
+                       VectorOfSizeSix virial);
 
-void ProcessParticleVirialTerm(double const dEidr, double const rij,
-    double const* const r_ij, int const i, int const j,
-    VectorOfSizeSix* const particleVirial);
+void ProcessParticleVirialTerm(double const dEidr,
+                               double const rij,
+                               double const * const r_ij,
+                               int const i,
+                               int const j,
+                               VectorOfSizeSix * const particleVirial);
 
 #endif

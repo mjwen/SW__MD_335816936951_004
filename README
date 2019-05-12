@@ -40,7 +40,7 @@ for multiple species.
    so it is combined with 'A' and 'lambda'. The 'cutoff' of the standard SW potential
    is determined implicitly by 'cutoff' = 'a*sigma', where 'a' and 'sigma' are
    potential parameters. In this Model Driver, the 'cutoff' is defined explicitly.
-   The benefit is that if 'sigma' is updated there is no needed to update 'cutoff'.
+   The benefit is that if 'sigma' is updated there is no need to update 'cutoff'.
    Above all, compared to the standard SW potential, the following redefinitions
    have been made:
 
@@ -52,7 +52,7 @@ for multiple species.
    Besides, the three-body parameter 'lambda' follows the below mixing rule:
    lambda_ijk = sqrt(lambda_ij*lambda_ik)
 
-   Finally, it is assumed that the angle 'thetea0' is the same for all three-body
+   Finally, it is assumed that the angle 'theta0' is the same for all three-body
    interactions.
 
    Consequently, the SW Driver for multiple species can be written as:

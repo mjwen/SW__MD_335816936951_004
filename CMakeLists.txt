@@ -23,13 +23,7 @@
 # All rights reserved.
 #
 # Contributors:
-#    Richard Berger
-#    Christoph Junghans
-#    Ryan S. Elliott
-#
-
-#
-# Release: This file is part of the kim-api.git repository.
+#    Mingjian Wen
 #
 
 
@@ -50,7 +44,7 @@ endif()
 # End preamble
 
 
-set(MODEL_DRIVER_NAME "Three_Body_Stillinger_Weber__MD_335816936951_003")
+set(MODEL_DRIVER_NAME "SW__MD_335816936951_004")
 
 add_kim_api_model_driver_library(
   NAME                    ${MODEL_DRIVER_NAME}

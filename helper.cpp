@@ -28,12 +28,11 @@
 
 #include "helper.hpp"
 
-void ProcessVirialTerm(double const dEidr, double const rij,
-    double const* const r_ij, int const i, int const j, VectorOfSizeSix virial)
+void ProcessVirialTerm(double const dEidr,
+                       double const rij,
+                       double const * const r_ij,
+                       VectorOfSizeSix virial)
 {
-  (void)i; // avoid not used warning
-  (void)j;
-
   double const v = dEidr / rij;
 
   virial[0] += v * r_ij[0] * r_ij[0];
@@ -45,9 +44,12 @@ void ProcessVirialTerm(double const dEidr, double const rij,
 }
 
 
-void ProcessParticleVirialTerm(double const dEidr, double const rij,
-    double const* const r_ij, int const i, int const j,
-    VectorOfSizeSix* const particleVirial)
+void ProcessParticleVirialTerm(double const dEidr,
+                               double const rij,
+                               double const * const r_ij,
+                               int const i,
+                               int const j,
+                               VectorOfSizeSix * const particleVirial)
 {
   double const v = dEidr / rij;
   VectorOfSizeSix vir;
@@ -59,7 +61,8 @@ void ProcessParticleVirialTerm(double const dEidr, double const rij,
   vir[4] = 0.5 * v * r_ij[0] * r_ij[2];
   vir[5] = 0.5 * v * r_ij[0] * r_ij[1];
 
-  for (int k = 0; k < 6; ++k) {
+  for (int k = 0; k < 6; ++k)
+  {
     particleVirial[i][k] += vir[k];
     particleVirial[j][k] += vir[k];
   }
